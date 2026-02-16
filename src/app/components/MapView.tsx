@@ -1,0 +1,428 @@
+import React, { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
+// @ts-ignore
+import 'leaflet-draw';
+import { Listing } from '../types';
+
+// Re-setup Leaflet icons
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+interface MapViewProps {
+  listings: Listing[];
+  onMarkerClick: (listing: Listing) => void;
+  onNavigateToDetails: (listing: Listing) => void;
+  onChat: (listing: Listing) => void;
+  onCall: (listing: Listing) => void;
+  hoveredId: string | null;
+  onMarkerHover: (id: string | null) => void;
+  onBoundsChange: (bounds: L.LatLngBounds) => void;
+  selectedId: string | null;
+  favorites: string[];
+  onToggleFavorite: (id: string) => void;
+  onPolygonCreated?: (polygon: [number, number][]) => void;
+  onPolygonDeleted?: () => void;
+}
+
+export function MapView({ 
+  listings, 
+  onMarkerClick, 
+  onNavigateToDetails,
+  onChat,
+  onCall,
+  hoveredId, 
+  onMarkerHover, 
+  onBoundsChange,
+  selectedId,
+  favorites,
+  onToggleFavorite,
+  onPolygonCreated,
+  onPolygonDeleted
+}: MapViewProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<{ [key: string]: L.Marker }>({});
+  const drawLayerRef = useRef<L.FeatureGroup | null>(null);
+  const drawControlRef = useRef<any>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+
+  const drawTools = [
+    { id: 'polygon', label: 'Desenhar Área', icon: '✏️', hint: 'Toque para desenhar' },
+    { id: 'delete', label: 'Limpar Área', icon: '🗑️', hint: 'Eliminar zona' }
+  ];
+
+  // 1. Initialize Map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    const map = L.map(mapContainerRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      preferCanvas: true,
+      fadeAnimation: true,
+      markerZoomAnimation: true
+    });
+
+    mapRef.current = map;
+    map.setView([38.8, -7.6], 8);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    const drawItems = new L.FeatureGroup();
+    map.addLayer(drawItems);
+    drawLayerRef.current = drawItems;
+
+    try {
+      if ((L.Control as any).Draw) {
+        const drawControl = new (L.Control as any).Draw({
+          edit: { featureGroup: drawItems, remove: true },
+          draw: {
+            polygon: {
+              allowIntersection: false,
+              showArea: true,
+              drawError: { color: '#e1e1e2', message: '<strong>Erro<strong>' },
+              shapeOptions: { color: '#2d5a27', fillOpacity: 0.2, weight: 3 }
+            },
+            polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
+          }
+        });
+        
+        drawControlRef.current = drawControl;
+      }
+    } catch (err) {}
+
+    map.on((L as any).Draw.Event.CREATED, (e: any) => {
+      if (!drawLayerRef.current) return;
+      drawLayerRef.current.clearLayers();
+      const layer = e.layer;
+      drawLayerRef.current.addLayer(layer);
+      const latlngs = layer.getLatLngs()[0].map((ll: any) => [ll.lat, ll.lng]);
+      onPolygonCreated?.(latlngs);
+    });
+
+    map.on((L as any).Draw.Event.DELETED, () => {
+      onPolygonDeleted?.();
+    });
+
+    map.on('moveend', () => {
+      if (mapRef.current) {
+        onBoundsChange(mapRef.current.getBounds());
+      }
+    });
+
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        try {
+          mapRef.current.invalidateSize();
+          setIsMapReady(true);
+        } catch (e) {
+          console.error("Leaflet invalidateSize error:", e);
+        }
+      }
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      if (drawControlRef.current && mapRef.current) {
+        try { mapRef.current.removeControl(drawControlRef.current); } catch (e) {}
+      }
+      if (mapRef.current) {
+        mapRef.current.off();
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
+  // Helpers for content
+  const getIconHtml = (listing: Listing, isSelected: boolean, hovered: boolean) => {
+    const isViewed = listing.viewed;
+    const speciesIcon = listing.species === 'Vacas' ? '🐄' : listing.species === 'Ovelhas' ? '🐑' : '🐐';
+    return `
+      <div class="relative group cursor-pointer">
+        <div class="flex flex-col items-center">
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-xl border-2 transition-all duration-300 transform ${isSelected ? 'scale-125 z-[3000] bg-primary border-white' : (isViewed ? 'bg-slate-100 border-slate-300' : 'bg-white border-primary')} ${hovered ? 'scale-110 -translate-y-1' : ''}">
+            <span class="${isSelected ? 'scale-110' : ''}">${speciesIcon}</span>
+          </div>
+          <div class="w-2.5 h-2.5 ${isSelected ? 'bg-primary' : (isViewed ? 'bg-slate-300' : 'bg-primary')} rotate-45 -mt-1.5 shadow-lg border-r border-b border-white"></div>
+        </div>
+      </div>
+    `;
+  };
+
+  const getPopupContent = (listing: Listing, isFavorite: boolean) => {
+    const formattedMalePrice = listing.malePrice ? listing.malePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '-';
+    const formattedFemalePrice = listing.femalePrice ? listing.femalePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '-';
+    const whatsappPhone = listing.contacts.phone.replace(/\s+/g, '');
+
+    return `
+      <div class="p-4 w-64 flex flex-col gap-4">
+        <div class="relative h-36 rounded-2xl overflow-hidden bg-slate-100 group">
+          <img src="${listing.photos[0]}" class="w-full h-full object-cover" />
+          <div class="absolute top-2 right-2 bg-white/95 px-2 py-1 rounded-lg text-[10px] font-black uppercase text-primary border border-primary/10 shadow-sm">
+            ${listing.location.municipality}
+          </div>
+          <button type="button" id="fav-btn-${listing.id}" class="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center bg-white shadow-lg cursor-pointer transition-all active:scale-90 ${isFavorite ? 'bg-red-500 text-white' : 'text-slate-400'}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="${isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="3"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </button>
+        </div>
+        
+        <div class="space-y-1">
+          <h4 id="title-btn-${listing.id}" class="font-black text-secondary text-lg leading-tight cursor-pointer hover:text-primary transition-colors">
+            ${listing.species} — ${listing.breed || 'Raça não esp.'}
+          </h4>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${listing.contacts.name}</span>
+            <span class="text-[10px] font-black text-primary uppercase bg-primary/5 px-2 py-0.5 rounded">Lote de ${listing.maleQty + listing.femaleQty}</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 border-y border-slate-100 py-3">
+          ${listing.maleQty > 0 ? `
+            <div class="flex flex-col">
+              <span class="text-[9px] font-black text-slate-400 uppercase">♂️ Machos</span>
+              <span class="text-sm font-black text-secondary">${formattedMalePrice}€</span>
+            </div>
+          ` : ''}
+          ${listing.femaleQty > 0 ? `
+            <div class="flex flex-col">
+              <span class="text-[9px] font-black text-slate-400 uppercase">♀️ Fêmeas</span>
+              <span class="text-sm font-black text-secondary">${formattedFemalePrice}€</span>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" id="chat-btn-${listing.id}" class="h-12 bg-primary text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-primary/10 transition-all active:scale-95">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+              <span class="text-[8px] font-black uppercase">Chat</span>
+            </button>
+            
+            <a href="https://wa.me/${whatsappPhone}" target="_blank" class="h-12 bg-green-500 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-green-500/10 no-underline transition-all active:scale-95">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span class="text-[8px] font-black uppercase">WhatsApp</span>
+            </a>
+
+            <button type="button" id="call-btn-${listing.id}" class="h-12 bg-slate-900 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-slate-900/10 no-underline transition-all active:scale-95">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span class="text-[8px] font-black uppercase">Ligar</span>
+            </button>
+          </div>
+          
+          <button type="button" id="view-details-${listing.id}" class="w-full h-10 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] border border-slate-100 transition-all hover:bg-slate-100">
+            Ver detalhes completos
+          </button>
+        </div>
+    `;
+  };
+
+  const wirePopupInteractions = (marker: L.Marker, listingId: string) => {
+    const popup = marker.getPopup();
+    const popupElement = popup?.getElement();
+    if (!popupElement) return;
+    const listing = listings.find(l => l.id === listingId);
+    if (!listing) return;
+
+    L.DomEvent.disableClickPropagation(popupElement);
+    const favBtn = popupElement.querySelector(`#fav-btn-${listing.id}`);
+    const titleBtn = popupElement.querySelector(`#title-btn-${listing.id}`);
+    const detailsBtn = popupElement.querySelector(`#view-details-${listing.id}`);
+    const chatBtn = popupElement.querySelector(`#chat-btn-${listing.id}`);
+    const callBtn = popupElement.querySelector(`#call-btn-${listing.id}`);
+
+    if (favBtn) L.DomEvent.on(favBtn as HTMLElement, 'click', (e) => {
+      L.DomEvent.stop(e);
+      onToggleFavorite(listing.id);
+    });
+    if (titleBtn || detailsBtn) {
+      [titleBtn, detailsBtn].filter(Boolean).forEach(btn => {
+        L.DomEvent.on(btn as HTMLElement, 'click', (e) => {
+          L.DomEvent.stop(e);
+          onNavigateToDetails(listing);
+        });
+      });
+    }
+    if (chatBtn) L.DomEvent.on(chatBtn as HTMLElement, 'click', (e) => {
+      L.DomEvent.stop(e);
+      onChat(listing);
+    });
+    if (callBtn) L.DomEvent.on(callBtn as HTMLElement, 'click', (e) => {
+      L.DomEvent.stop(e);
+      onCall(listing);
+    });
+  };
+
+  // 2. Marker Sync (Handles creation and basic icon state)
+  useEffect(() => {
+    if (!mapRef.current || !isMapReady) return;
+    const map = mapRef.current;
+
+    const listingIds = listings.map(l => l.id);
+    Object.keys(markersRef.current).forEach(id => {
+      if (!listingIds.includes(id)) {
+        markersRef.current[id].remove();
+        delete markersRef.current[id];
+      }
+    });
+
+    listings.forEach((listing) => {
+      let marker = markersRef.current[listing.id];
+      const isSelected = selectedId === listing.id;
+      const hovered = hoveredId === listing.id;
+      const isFavorite = favorites.includes(listing.id);
+
+      const icon = L.divIcon({
+        className: 'custom-div-icon',
+        html: getIconHtml(listing, isSelected, hovered),
+        iconSize: [40, 40],
+        iconAnchor: [20, 40],
+      });
+
+      if (!marker) {
+        marker = L.marker([listing.location.lat, listing.location.lng], { 
+          icon,
+          bubblingMouseEvents: false 
+        }).addTo(map);
+
+        marker.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          onMarkerClick(listing);
+        });
+        marker.on('mouseover', () => onMarkerHover(listing.id));
+        marker.on('mouseout', () => onMarkerHover(null));
+
+        markersRef.current[listing.id] = marker;
+      } else {
+        // Only update icon if state changed (optimization to reduce blinks)
+        marker.setIcon(icon);
+        marker.setZIndexOffset(isSelected ? 2000 : (hovered ? 1000 : 0));
+      }
+
+      // Handle Popup - Only set content if popup is NOT open or content actually changes
+      const content = getPopupContent(listing, isFavorite);
+      if (!marker.getPopup()) {
+        marker.bindPopup(content, {
+          closeButton: false,
+          className: 'custom-popup',
+          offset: [0, -32],
+          maxWidth: 280,
+          autoPan: false
+        });
+        marker.on('popupopen', () => wirePopupInteractions(marker, listing.id));
+      } else {
+        // Prevent flickering by only updating content if popup is closed or data actually differs
+        const currentPopup = marker.getPopup();
+        if (currentPopup && !marker.isPopupOpen()) {
+          marker.setPopupContent(content);
+        } else if (currentPopup && marker.isPopupOpen()) {
+          // If open, we might want to update it for favorites, but carefully
+          const hasFavClass = content.includes('bg-red-500');
+          const hadFavClass = (currentPopup.getContent() as string).includes('bg-red-500');
+          if (hasFavClass !== hadFavClass) {
+            marker.setPopupContent(content);
+            wirePopupInteractions(marker, listing.id);
+          }
+        }
+      }
+    });
+  }, [listings, isMapReady, favorites]);
+
+  // 3. Selective Icon Update (Smooth transitions)
+  useEffect(() => {
+    if (!isMapReady) return;
+    Object.entries(markersRef.current).forEach(([id, marker]) => {
+      const listing = listings.find(l => l.id === id);
+      if (listing) {
+        const isSelected = selectedId === id;
+        const hovered = hoveredId === id;
+        marker.setIcon(L.divIcon({
+          className: 'custom-div-icon',
+          html: getIconHtml(listing, isSelected, hovered),
+          iconSize: [40, 40],
+          iconAnchor: [20, 40],
+        }));
+        marker.setZIndexOffset(isSelected ? 2000 : (hovered ? 1000 : 0));
+        
+        if (isSelected && !marker.isPopupOpen()) {
+          marker.openPopup();
+        }
+      }
+    });
+  }, [hoveredId, selectedId, isMapReady]);
+
+  return (
+    <div className="w-full h-full relative bg-slate-100">
+      <div 
+        ref={mapContainerRef} 
+        className="w-full h-full z-0 transition-opacity duration-700"
+        style={{ opacity: isMapReady ? 1 : 0.01 }} 
+      />
+      
+      {!isMapReady && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-50/95 backdrop-blur-sm z-50">
+          <div className="w-16 h-16 border-8 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+          <div className="flex flex-col items-center">
+            <p className="font-black text-secondary uppercase tracking-[0.2em] text-sm italic">AgroLink</p>
+            <p className="font-bold text-primary/60 uppercase tracking-widest text-[10px] mt-2">A sintonizar mercado...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Draw Controls for clarity */}
+      <div className="absolute top-6 left-6 z-[1000] flex flex-col gap-3">
+        {drawTools.map((tool) => (
+          <button
+            key={tool.id}
+            onClick={() => {
+              if (tool.id === 'polygon') {
+                if (!mapRef.current) return;
+                const polygonTool = new (L as any).Draw.Polygon(mapRef.current, {
+                  allowIntersection: false,
+                  showArea: true,
+                  shapeOptions: { color: '#2d5a27', fillOpacity: 0.2, weight: 3 }
+                });
+                polygonTool.enable();
+              } else {
+                drawLayerRef.current?.clearLayers();
+                onPolygonDeleted?.();
+              }
+            }}
+            className="group flex items-center bg-white border-2 border-slate-100 rounded-2xl p-1 pr-4 shadow-xl hover:border-primary transition-all active:scale-95"
+          >
+            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-2xl group-hover:bg-primary/10 transition-colors">
+              {tool.icon}
+            </div>
+            <div className="ml-3 text-left">
+              <p className="text-[10px] font-black text-secondary uppercase leading-none">{tool.label}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{tool.hint}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <style>{`
+        .leaflet-popup-pane { z-index: 1000 !important; }
+        .custom-popup { pointer-events: auto !important; }
+        .custom-popup .leaflet-popup-content-wrapper {
+          border-radius: 32px;
+          padding: 0;
+          overflow: hidden;
+          box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+          border: 1px solid rgba(0,0,0,0.05);
+        }
+        .custom-popup .leaflet-popup-content { margin: 0; width: auto !important; }
+        .custom-div-icon { background: none !important; border: none !important; }
+        .leaflet-container { background: #f8fafc !important; }
+      `}</style>
+    </div>
+  );
+}
