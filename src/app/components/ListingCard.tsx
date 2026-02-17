@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, MapPin, CheckCircle2, Phone, MessageCircle, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
-import { Listing } from '../types';
+import { Listing, formatCurrency } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -182,19 +182,19 @@ export function ListingCard({
               <div className="text-right flex flex-col items-end gap-2">
                 <p className="text-2xl font-black text-primary">
                   {typeof listing.price === 'number' 
-                    ? `${listing.price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}€` 
+                    ? formatCurrency(listing.price) 
                     : listing.price}
                 </p>
                 {typeof listing.price === 'number' && (
                   <div className="flex flex-col items-start gap-1.5 border-t border-slate-100 pt-2 min-w-[100px]">
                     {listing.maleQty > 0 && listing.malePrice && (
                       <p className="text-[14px] font-black text-secondary leading-none">
-                        ♂️ {listing.malePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}€/un
+                        ♂️ {formatCurrency(listing.malePrice)}/un
                       </p>
                     )}
                     {listing.femaleQty > 0 && listing.femalePrice && (
                       <p className="text-[14px] font-black text-secondary leading-none">
-                        ♀️ {listing.femalePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}€/un
+                        ♀️ {formatCurrency(listing.femalePrice)}/un
                       </p>
                     )}
                   </div>

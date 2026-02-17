@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, CheckCircle2, Minus, Plus, Info } from 'lucide-react';
-import { Species, Sex } from '../types';
+import { Species, Sex, formatCurrency } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -14,6 +14,14 @@ const BREED_OPTIONS = {
   Cabras: ['Serrana', 'Serpentina', 'Charnequeira', 'Murciana', 'Outra/Não sei']
 };
 
+import * as Slider from '@radix-ui/react-slider';
+
+const PRICE_SCALE_BY_SPECIES = {
+  Vacas: { min: 0, max: 8000, step: 50, midpoint: 4000, defaultMin: 600, defaultMax: 3200 },
+  Ovelhas: { min: 0, max: 600, step: 5, midpoint: 300, defaultMin: 80, defaultMax: 250 },
+  Cabras: { min: 0, max: 700, step: 5, midpoint: 350, defaultMin: 80, defaultMax: 250 }
+};
+
 interface FilterModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,6 +31,7 @@ interface FilterModalProps {
     lifeStages: string[];
     minMales: number;
     minFemales: number;
+    minPrice: number;
     maxPrice: number;
     hasPhotos: boolean;
   };
@@ -72,14 +81,22 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
                   key={s}
                   onClick={() => {
                     setFilters((prev: any) => {
-                      const newSpecies = prev.species.includes(s) 
-                        ? prev.species.filter((x: any) => x !== s) 
-                        : [...prev.species, s];
-                      return {
+                      const isSelectedNow = prev.species.includes(s);
+                      const newSpecies = isSelectedNow ? [] : [s];
+                      
+                      let nextFilters = {
                         ...prev,
                         species: newSpecies,
                         breeds: [] 
                       };
+
+                      if (newSpecies.length === 1) {
+                        const config = PRICE_SCALE_BY_SPECIES[newSpecies[0] as Species];
+                        nextFilters.minPrice = config.defaultMin;
+                        nextFilters.maxPrice = config.defaultMax;
+                      }
+                      
+                      return nextFilters;
                     });
                   }}
                   className={cn(
@@ -261,29 +278,93 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
             </div>
           </div>
 
-          {/* Preço Máximo */}
+          {/* Preço por cabeça (Dynamic Scale) */}
           <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-center">
-              <div className="flex flex-col gap-0.5">
-                <h3 className="text-lg font-bold text-secondary">Preço por cabeça</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Até que valor?</p>
+            <div className="flex flex-col gap-1">
+              <h3 className="text-lg font-bold text-secondary">Preço (€/cabeça)</h3>
+              <p className="text-xs font-bold text-slate-400">Preço por animal (não por kg).</p>
+            </div>
+
+            {isOneSpeciesSelected ? (() => {
+              const config = PRICE_SCALE_BY_SPECIES[selectedSpecies as Species];
+              
+              const formatInput = (val: number) => val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+              const parseInput = (str: string) => parseInt(str.replace(/\./g, '')) || 0;
+
+              return (
+                <div className="flex flex-col gap-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mínimo</p>
+                      <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 focus-within:border-primary transition-colors">
+                        <input 
+                          type="text" 
+                          value={formatInput(filters.minPrice)}
+                          onChange={(e) => {
+                            const val = Math.min(filters.maxPrice, Math.max(config.min, parseInput(e.target.value)));
+                            setFilters((prev: any) => ({ ...prev, minPrice: val }));
+                          }}
+                          className="w-full bg-transparent font-black text-center text-secondary outline-none"
+                        />
+                        <span className="text-xs font-black text-slate-400">€</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Máximo</p>
+                      <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 focus-within:border-primary transition-colors">
+                        <input 
+                          type="text" 
+                          value={formatInput(filters.maxPrice)}
+                          onChange={(e) => {
+                            const val = Math.max(filters.minPrice, Math.min(config.max, parseInput(e.target.value)));
+                            setFilters((prev: any) => ({ ...prev, maxPrice: val }));
+                          }}
+                          className="w-full bg-transparent font-black text-center text-secondary outline-none"
+                        />
+                        <span className="text-xs font-black text-slate-400">€</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-2">
+                    <Slider.Root
+                      className="relative flex items-center select-none touch-none w-full h-5"
+                      min={config.min}
+                      max={config.max}
+                      step={config.step}
+                      value={[filters.minPrice, filters.maxPrice]}
+                      onValueChange={([min, max]) => {
+                        setFilters((prev: any) => ({ ...prev, minPrice: min, maxPrice: max }));
+                      }}
+                    >
+                      <Slider.Track className="bg-slate-100 relative grow rounded-full h-2">
+                        <Slider.Range className="absolute bg-primary rounded-full h-full" />
+                      </Slider.Track>
+                      <Slider.Thumb
+                        className="block w-6 h-6 bg-white border-2 border-primary rounded-full shadow-lg hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        aria-label="Preço mínimo"
+                      />
+                      <Slider.Thumb
+                        className="block w-6 h-6 bg-white border-2 border-primary rounded-full shadow-lg hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        aria-label="Preço máximo"
+                      />
+                    </Slider.Root>
+                    <div className="flex justify-between mt-3 text-[10px] font-black text-slate-300 uppercase tracking-tighter">
+                      <span>{formatCurrency(config.min)}</span>
+                      <span>{formatCurrency(config.midpoint)}</span>
+                      <span>{formatCurrency(config.max)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })() : (
+              <div className="p-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-center flex flex-col items-center gap-2">
+                <Info className="w-5 h-5 text-slate-300" />
+                <p className="text-xs font-bold text-slate-400 max-w-[200px]">
+                  Para filtrar por preço, escolha apenas uma espécie.
+                </p>
               </div>
-              <span className="text-xl font-black text-primary">{filters.maxPrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}€</span>
-            </div>
-            <input 
-              type="range" 
-              min="0" 
-              max="5000" 
-              step="50"
-              value={filters.maxPrice}
-              onChange={(e) => setFilters((prev: any) => ({ ...prev, maxPrice: parseInt(e.target.value) }))}
-              className="w-full h-3 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-primary"
-            />
-            <div className="flex justify-between text-[10px] font-black text-slate-300 uppercase tracking-tighter">
-              <span>0€</span>
-              <span>2.500€</span>
-              <span>5.000€+</span>
-            </div>
+            )}
           </div>
         </div>
 

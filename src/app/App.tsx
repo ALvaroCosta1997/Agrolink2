@@ -84,17 +84,66 @@ export default function App() {
   const [selectedListing, setSelectedListing] =
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const PRICE_SCALE_BY_SPECIES = {
+    Vacas: { min: 0, max: 8000, step: 50, midpoint: 4000, defaultMin: 600, defaultMax: 3200 },
+    Ovelhas: { min: 0, max: 600, step: 5, midpoint: 300, defaultMin: 80, defaultMax: 250 },
+    Cabras: { min: 0, max: 700, step: 5, midpoint: 350, defaultMin: 80, defaultMax: 250 }
+  };
+
   const [filters, setFilters] = useState({
     species: [] as Species[],
     breeds: [] as string[],
     lifeStages: [] as string[],
     minMales: 0,
     minFemales: 0,
-    maxPrice: 3000,
+    minPrice: 0,
+    maxPrice: 8000,
     hasPhotos: false,
     minMaleWeight: 0,
     minFemaleWeight: 0,
   });
+
+  // Reset/Clamp price filters when species changes
+  useEffect(() => {
+    if (filters.species.length === 1) {
+      const sp = filters.species[0];
+      const config = PRICE_SCALE_BY_SPECIES[sp];
+      
+      // If price was at default or 0/8000, or species just changed, set defaults
+      setFilters(prev => {
+        // We only reset if the previous species was different or empty
+        // Since we don't have "previousSpecies" state, we check if current values are out of range
+        // or we can use a ref to track last species
+        return {
+          ...prev,
+          minPrice: Math.max(config.min, Math.min(prev.minPrice, config.max)),
+          maxPrice: Math.max(config.min, Math.min(prev.maxPrice, config.max)),
+        };
+      });
+    }
+  }, [filters.species]);
+
+  // Handle Species change defaults explicitly
+  const handleSpeciesChange = (s: Species) => {
+    setFilters((prev) => {
+      const isSelectedNow = prev.species.includes(s);
+      const newSpecies = isSelectedNow ? [] : [s];
+      
+      let nextFilters = {
+        ...prev,
+        species: newSpecies,
+        breeds: [],
+      };
+
+      if (newSpecies.length === 1) {
+        const config = PRICE_SCALE_BY_SPECIES[newSpecies[0] as Species];
+        nextFilters.minPrice = config.defaultMin;
+        nextFilters.maxPrice = config.defaultMax;
+      }
+
+      return nextFilters;
+    });
+  };
   const [hoveredListingId, setHoveredListingId] = useState<
     string | null
   >(null);
@@ -332,37 +381,16 @@ export default function App() {
         filters.lifeStages.includes(l.lifeStage);
 
       const matchPrice = (() => {
-        if (typeof l.price === "string") return true; 
-
-        const maleMatch =
-          filters.minMales > 0
-            ? l.maleQty > 0 && l.malePrice
-              ? l.malePrice <= filters.maxPrice
-              : false
-            : true;
-
-        const femaleMatch =
-          filters.minFemales > 0
-            ? l.femaleQty > 0 && l.femalePrice
-              ? l.femalePrice <= filters.maxPrice
-              : false
-            : true;
-
-        if (
-          filters.minMales === 0 &&
-          filters.minFemales === 0
-        ) {
-          const prices = [];
-          if (l.maleQty > 0 && l.malePrice)
-            prices.push(l.malePrice);
-          if (l.femaleQty > 0 && l.femalePrice)
-            prices.push(l.femalePrice);
-          return prices.length > 0
-            ? prices.some((p) => p <= filters.maxPrice)
-            : true;
-        }
-
-        return maleMatch && femaleMatch;
+        if (filters.species.length !== 1) return true;
+        
+        const inRange = (p?: number) => p !== undefined && p !== null && p >= filters.minPrice && p <= filters.maxPrice;
+        
+        const hasMalePrice = l.malePrice !== undefined && l.malePrice !== null;
+        const hasFemalePrice = l.femalePrice !== undefined && l.femalePrice !== null;
+        
+        if (!hasMalePrice && !hasFemalePrice) return false;
+        
+        return inRange(l.malePrice) || inRange(l.femalePrice);
       })();
 
       const matchMales = l.maleQty >= filters.minMales;
@@ -619,15 +647,7 @@ export default function App() {
                     return (
                       <button
                         key={s}
-                        onClick={() => {
-                          setFilters((prev) => {
-                            const isSelectedNow = prev.species.includes(s);
-                            return {
-                              ...prev,
-                              species: isSelectedNow ? [] : [s],
-                            };
-                          });
-                        }}
+                        onClick={() => handleSpeciesChange(s)}
                         className={cn(
                           "h-11 sm:h-16 flex-1 min-w-0 px-1 sm:px-4 rounded-2xl font-black text-[9px] sm:text-xs border-2 transition-all flex flex-col items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap active:scale-95",
                           isSelected
@@ -700,8 +720,11 @@ export default function App() {
                         lifeStages: [],
                         minMales: 0,
                         minFemales: 0,
-                        maxPrice: 50000,
+                        minPrice: 0,
+                        maxPrice: 8000,
                         hasPhotos: false,
+                        minMaleWeight: 0,
+                        minFemaleWeight: 0,
                       });
                       setActivePolygon(null);
                     }}

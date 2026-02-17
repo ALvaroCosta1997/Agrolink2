@@ -2,6 +2,10 @@ export type Species = 'Vacas' | 'Ovelhas' | 'Cabras';
 export type Sex = 'Macho' | 'Fêmea';
 export type LifeStage = 'NEWBORN' | 'YOUNG' | 'ADULT' | 'SLAUGHTER';
 
+export const formatCurrency = (value: number) => {
+  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "€";
+};
+
 export interface Listing {
   id: string;
   species: Species;
