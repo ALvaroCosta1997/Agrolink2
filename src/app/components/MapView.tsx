@@ -185,13 +185,13 @@ export function MapView({
           <div class="absolute top-2 right-2 bg-white/95 px-2 py-1 rounded-lg text-[10px] font-black uppercase text-primary border border-primary/10 shadow-sm">
             ${listing.location.municipality}
           </div>
-          <button type="button" id="fav-btn-${listing.id}" class="absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center bg-white shadow-lg cursor-pointer transition-all active:scale-90 ${isFavorite ? 'bg-red-500 text-white' : 'text-slate-400'}">
+          <button type="button" class="popup-fav-btn absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center bg-white shadow-lg cursor-pointer transition-all active:scale-90 ${isFavorite ? 'bg-red-500 text-white' : 'text-slate-400'}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="${isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="3"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
           </button>
         </div>
         
         <div class="space-y-1">
-          <h4 id="title-btn-${listing.id}" class="font-black text-secondary text-lg leading-tight cursor-pointer hover:text-primary transition-colors">
+          <h4 class="popup-title-btn font-black text-secondary text-lg leading-tight cursor-pointer hover:text-primary transition-colors">
             ${listing.species} — ${listing.breed || 'Raça não esp.'}
           </h4>
           <div class="flex items-center gap-2">
@@ -217,7 +217,7 @@ export function MapView({
 
         <div class="flex flex-col gap-2">
           <div class="grid grid-cols-3 gap-2">
-            <button type="button" id="chat-btn-${listing.id}" class="h-12 bg-primary text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-primary/10 transition-all active:scale-95">
+            <button type="button" class="popup-chat-btn h-12 bg-primary text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-primary/10 transition-all active:scale-95">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
               <span class="text-[8px] font-black uppercase">Chat</span>
             </button>
@@ -227,13 +227,13 @@ export function MapView({
               <span class="text-[8px] font-black uppercase">WhatsApp</span>
             </a>
 
-            <button type="button" id="call-btn-${listing.id}" class="h-12 bg-slate-900 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-slate-900/10 no-underline transition-all active:scale-95">
+            <button type="button" class="popup-call-btn h-12 bg-slate-900 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-slate-900/10 no-underline transition-all active:scale-95">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
               <span class="text-[8px] font-black uppercase">Ligar</span>
             </button>
           </div>
           
-          <button type="button" id="view-details-${listing.id}" class="w-full h-10 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] border border-slate-100 transition-all hover:bg-slate-100">
+          <button type="button" class="popup-details-btn w-full h-10 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] border border-slate-100 transition-all hover:bg-slate-100">
             Ver detalhes completos
           </button>
         </div>
@@ -242,38 +242,59 @@ export function MapView({
 
   const wirePopupInteractions = (marker: L.Marker, listingId: string) => {
     const popup = marker.getPopup();
-    const popupElement = popup?.getElement();
-    if (!popupElement) return;
-    const listing = listings.find(l => l.id === listingId);
-    if (!listing) return;
+    // Use a small timeout to ensure the DOM is fully rendered in the popup
+    setTimeout(() => {
+      const popupElement = popup?.getElement();
+      if (!popupElement) return;
+      
+      const listing = listings.find(l => l.id === listingId);
+      if (!listing) return;
 
-    L.DomEvent.disableClickPropagation(popupElement);
-    const favBtn = popupElement.querySelector(`#fav-btn-${listing.id}`);
-    const titleBtn = popupElement.querySelector(`#title-btn-${listing.id}`);
-    const detailsBtn = popupElement.querySelector(`#view-details-${listing.id}`);
-    const chatBtn = popupElement.querySelector(`#chat-btn-${listing.id}`);
-    const callBtn = popupElement.querySelector(`#call-btn-${listing.id}`);
+      // Prevent map clicks when clicking inside the popup
+      L.DomEvent.disableClickPropagation(popupElement);
 
-    if (favBtn) L.DomEvent.on(favBtn as HTMLElement, 'click', (e) => {
-      L.DomEvent.stop(e);
-      onToggleFavorite(listing.id);
-    });
-    if (titleBtn || detailsBtn) {
-      [titleBtn, detailsBtn].filter(Boolean).forEach(btn => {
-        L.DomEvent.on(btn as HTMLElement, 'click', (e) => {
+      // Selection by class to be more resilient
+      const chatBtn = popupElement.querySelector('.popup-chat-btn');
+      const callBtn = popupElement.querySelector('.popup-call-btn');
+      const favBtn = popupElement.querySelector('.popup-fav-btn');
+      const detailsBtn = popupElement.querySelector('.popup-details-btn');
+      const titleBtn = popupElement.querySelector('.popup-title-btn');
+
+      if (favBtn) {
+        L.DomEvent.on(favBtn as HTMLElement, 'click', (e) => {
+          L.DomEvent.stop(e);
+          onToggleFavorite(listing.id);
+        });
+      }
+
+      if (detailsBtn) {
+        L.DomEvent.on(detailsBtn as HTMLElement, 'click', (e) => {
           L.DomEvent.stop(e);
           onNavigateToDetails(listing);
         });
-      });
-    }
-    if (chatBtn) L.DomEvent.on(chatBtn as HTMLElement, 'click', (e) => {
-      L.DomEvent.stop(e);
-      onChat(listing);
-    });
-    if (callBtn) L.DomEvent.on(callBtn as HTMLElement, 'click', (e) => {
-      L.DomEvent.stop(e);
-      onCall(listing);
-    });
+      }
+
+      if (titleBtn) {
+        L.DomEvent.on(titleBtn as HTMLElement, 'click', (e) => {
+          L.DomEvent.stop(e);
+          onNavigateToDetails(listing);
+        });
+      }
+
+      if (chatBtn) {
+        L.DomEvent.on(chatBtn as HTMLElement, 'click', (e) => {
+          L.DomEvent.stop(e);
+          onChat(listing);
+        });
+      }
+
+      if (callBtn) {
+        L.DomEvent.on(callBtn as HTMLElement, 'click', (e) => {
+          L.DomEvent.stop(e);
+          onCall(listing);
+        });
+      }
+    }, 10);
   };
 
   // 2. Marker Sync (Handles creation and basic icon state)
@@ -302,53 +323,45 @@ export function MapView({
         iconAnchor: [20, 40],
       });
 
+      // Handle Popup Content first
+      const content = getPopupContent(listing, isFavorite);
+
       if (!marker) {
         marker = L.marker([listing.location.lat, listing.location.lng], { 
           icon,
           bubblingMouseEvents: false 
         }).addTo(map);
 
-        marker.on('click', (e) => {
-          L.DomEvent.stopPropagation(e);
-          onMarkerClick(listing);
-          // Manually open popup on click since we disabled auto-popup on select for non-click cases
-          if (!marker.isPopupOpen()) {
-            marker.openPopup();
-          }
-        });
-        marker.on('mouseover', () => onMarkerHover(listing.id));
-        marker.on('mouseout', () => onMarkerHover(null));
-
-        markersRef.current[listing.id] = marker;
-      } else {
-        // Only update icon if state changed (optimization to reduce blinks)
-        marker.setIcon(icon);
-        marker.setZIndexOffset(isSelected ? 2000 : (hovered ? 1000 : 0));
-      }
-
-      // Handle Popup - Only set content if popup is NOT open or content actually changes
-      const content = getPopupContent(listing, isFavorite);
-      if (!marker.getPopup()) {
+        // Bind popup immediately
         marker.bindPopup(content, {
           closeButton: false,
           className: 'custom-popup',
           offset: [0, -32],
           maxWidth: 280,
-          autoPan: false
+          autoPan: true // Changed to true to help with visibility on click
         });
+
+        marker.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          onMarkerClick(listing);
+          marker.openPopup();
+        });
+        marker.on('mouseover', () => onMarkerHover(listing.id));
+        marker.on('mouseout', () => onMarkerHover(null));
         marker.on('popupopen', () => wirePopupInteractions(marker, listing.id));
+
+        markersRef.current[listing.id] = marker;
       } else {
-        // Prevent flickering by only updating content if popup is closed or data actually differs
+        marker.setIcon(icon);
+        marker.setZIndexOffset(isSelected ? 2000 : (hovered ? 1000 : 0));
+        
+        // Update content if needed
         const currentPopup = marker.getPopup();
-        if (currentPopup && !marker.isPopupOpen()) {
-          marker.setPopupContent(content);
-        } else if (currentPopup && marker.isPopupOpen()) {
-          // If open, we might want to update it for favorites, but carefully
-          const hasFavClass = content.includes('bg-red-500');
-          const hadFavClass = (currentPopup.getContent() as string).includes('bg-red-500');
-          if (hasFavClass !== hadFavClass) {
+        if (currentPopup) {
+          const oldContent = currentPopup.getContent() as string;
+          if (oldContent !== content) {
             marker.setPopupContent(content);
-            wirePopupInteractions(marker, listing.id);
+            if (marker.isPopupOpen()) wirePopupInteractions(marker, listing.id);
           }
         }
       }
