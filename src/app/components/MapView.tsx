@@ -49,7 +49,7 @@ export function MapView({
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [key: string]: L.Marker }>({});
   const drawLayerRef = useRef<L.FeatureGroup | null>(null);
-  const drawControlRef = useRef<any>(null);
+  const [activeDrawHandler, setActiveDrawHandler] = useState<any>(null);
   const [isMapReady, setIsMapReady] = useState(false);
 
   const drawTools = [
@@ -60,6 +60,14 @@ export function MapView({
   // 1. Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
+    if (mapRef.current) return; // Avoid double initialization
+
+    // Ensure container is empty and clean
+    if ((mapContainerRef.current as any)._leaflet_id) {
+       const existingMapId = (mapContainerRef.current as any)._leaflet_id;
+       // Try to find if there's a global registry or just trust the ref.
+       // In most cases, mapRef.current should be enough, but fast-refresh can be tricky.
+    }
 
     const map = L.map(mapContainerRef.current, {
       zoomControl: false,
@@ -67,7 +75,7 @@ export function MapView({
       preferCanvas: true,
       fadeAnimation: true,
       markerZoomAnimation: true,
-      tap: false, // Prevents 300ms delay on touch
+      tap: false,
       touchZoom: true,
       dragging: true
     });
@@ -86,21 +94,10 @@ export function MapView({
     drawLayerRef.current = drawItems;
 
     try {
-      if ((L.Control as any).Draw) {
-        const drawControl = new (L.Control as any).Draw({
-          edit: { featureGroup: drawItems, remove: true },
-          draw: {
-            polygon: {
-              allowIntersection: false,
-              showArea: true,
-              drawError: { color: '#e1e1e2', message: '<strong>Erro<strong>' },
-              shapeOptions: { color: '#2d5a27', fillOpacity: 0.2, weight: 3 }
-            },
-            polyline: false, rectangle: false, circle: false, marker: false, circlemarker: false
-          }
-        });
-        
-        drawControlRef.current = drawControl;
+      if ((L as any).drawLocal) {
+        (L as any).drawLocal.draw.handlers.polygon.tooltip.start = 'Toque para começar a desenhar';
+        (L as any).drawLocal.draw.handlers.polygon.tooltip.cont = 'Continue a tocar para desenhar a área';
+        (L as any).drawLocal.draw.handlers.polygon.tooltip.end = 'Toque no primeiro ponto para fechar';
       }
     } catch (err) {}
 
@@ -109,12 +106,18 @@ export function MapView({
       drawLayerRef.current.clearLayers();
       const layer = e.layer;
       drawLayerRef.current.addLayer(layer);
-      const latlngs = layer.getLatLngs()[0].map((ll: any) => [ll.lat, ll.lng]);
+      
+      const latlngsRaw = layer.getLatLngs();
+      const latlngs = Array.isArray(latlngsRaw[0]) 
+        ? latlngsRaw[0].map((ll: any) => [ll.lat, ll.lng])
+        : latlngsRaw.map((ll: any) => [ll.lat, ll.lng]);
+      
       onPolygonCreated?.(latlngs);
+      setActiveDrawHandler(null);
     });
 
-    map.on((L as any).Draw.Event.DELETED, () => {
-      onPolygonDeleted?.();
+    map.on((L as any).Draw.Event.DRAWSTOP, () => {
+      setTimeout(() => setActiveDrawHandler(null), 100);
     });
 
     map.on('moveend', () => {
@@ -136,9 +139,6 @@ export function MapView({
 
     return () => {
       clearTimeout(timer);
-      if (drawControlRef.current && mapRef.current) {
-        try { mapRef.current.removeControl(drawControlRef.current); } catch (e) {}
-      }
       if (mapRef.current) {
         mapRef.current.off();
         mapRef.current.remove();
@@ -400,20 +400,33 @@ export function MapView({
             onClick={() => {
               if (tool.id === 'polygon') {
                 if (!mapRef.current) return;
+                
+                // If already drawing, clicking the tool can act as a toggle or finish
+                if (activeDrawHandler) {
+                   try { 
+                     activeDrawHandler.disable(); 
+                     setActiveDrawHandler(null);
+                   } catch (e) {}
+                   return;
+                }
+
                 const polygonTool = new (L as any).Draw.Polygon(mapRef.current, {
                   allowIntersection: false,
-                  showArea: true,
+                  showArea: false, // Disabling to avoid "type is not defined" error in leaflet-draw
+                  metric: true,
+                  repeatMode: false,
                   shapeOptions: { color: '#2d5a27', fillOpacity: 0.2, weight: 3 }
                 });
                 polygonTool.enable();
+                setActiveDrawHandler(polygonTool);
               } else {
                 drawLayerRef.current?.clearLayers();
                 onPolygonDeleted?.();
               }
             }}
-            className="group flex items-center bg-white border-2 border-slate-100 rounded-2xl p-1 pr-4 shadow-xl hover:border-primary transition-all active:scale-95"
+            className={`group flex items-center bg-white border-2 rounded-2xl p-1 pr-4 shadow-xl transition-all active:scale-95 ${activeDrawHandler && tool.id === 'polygon' ? 'border-primary' : 'border-slate-100 hover:border-primary'}`}
           >
-            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-2xl group-hover:bg-primary/10 transition-colors">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl group-hover:bg-primary/10 transition-colors ${activeDrawHandler && tool.id === 'polygon' ? 'bg-primary/20' : 'bg-slate-50'}`}>
               {tool.icon}
             </div>
             <div className="ml-3 text-left">
@@ -422,6 +435,28 @@ export function MapView({
             </div>
           </button>
         ))}
+
+        {activeDrawHandler && (
+          <button
+            onClick={() => {
+              // Standard Leaflet Draw way to finish shape via public methods if available or internal
+              if (activeDrawHandler && typeof activeDrawHandler.completeShape === 'function') {
+                 activeDrawHandler.completeShape();
+              } else if (activeDrawHandler && activeDrawHandler._finishShape) {
+                 activeDrawHandler._finishShape();
+              } else {
+                 // Fallback: disable triggers DRAWSTOP, but might not trigger CREATED if not enough points
+                 activeDrawHandler.disable();
+              }
+            }}
+            className="flex items-center bg-primary border-2 border-white rounded-2xl p-4 shadow-xl hover:scale-105 transition-all active:scale-95 text-white animate-pulse"
+          >
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs font-black uppercase leading-none">FECHAR ZONA</p>
+              <p className="text-[8px] font-bold opacity-80 uppercase tracking-tighter">Concluir e Filtrar</p>
+            </div>
+          </button>
+        )}
       </div>
 
       <style>{`

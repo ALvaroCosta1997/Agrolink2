@@ -54,21 +54,23 @@ const isPointInPolygon = (
   point: [number, number],
   polygon: [number, number][],
 ) => {
-  const x = point[0],
-    y = point[1];
+  const lat = point[0],
+    lng = point[1];
   let inside = false;
   for (
     let i = 0, j = polygon.length - 1;
     i < polygon.length;
     j = i++
   ) {
-    const xi = polygon[i][0],
-      yi = polygon[i][1];
-    const xj = polygon[j][0],
-      yj = polygon[j][1];
+    const latI = polygon[i][0],
+      lngI = polygon[i][1];
+    const latJ = polygon[j][0],
+      lngJ = polygon[j][1];
+    
+    // Standard Jordan Curve theorem / Ray Casting
     const intersect =
-      yi > y !== yj > y &&
-      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+      lngI > lng !== lngJ > lng &&
+      lat < ((latJ - latI) * (lng - lngI)) / (lngJ - lngI) + latI;
     if (intersect) inside = !inside;
   }
   return inside;
@@ -538,24 +540,29 @@ export default function App() {
                 </div>
 
                 {activePolygon && (
-                  <div className="flex items-center gap-2 bg-primary/10 p-3 rounded-2xl border border-primary/20">
-                    <div className="bg-primary p-2 rounded-xl text-white">
-                      <MapIcon className="w-5 h-5" />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3 bg-primary/10 p-4 rounded-2xl border-2 border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2">
+                      <div className="bg-primary p-3 rounded-xl text-white shadow-lg shadow-primary/20">
+                        <MapIcon className="w-6 h-6" strokeWidth={3} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-black text-sm text-primary uppercase tracking-widest leading-none">
+                          Zona Desenhar
+                        </p>
+                        <p className="text-[11px] font-bold text-primary/60 mt-1 uppercase">
+                          A mostrar apenas {filteredListings.length} resultados nesta área
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setActivePolygon(null);
+                          toast.info("Filtro de zona removido");
+                        }}
+                        className="bg-white p-3 hover:bg-red-50 rounded-xl transition-all text-primary hover:text-red-500 shadow-sm border border-primary/5 active:scale-90"
+                      >
+                        <X className="w-6 h-6" strokeWidth={3} />
+                      </button>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-black text-xs text-primary uppercase tracking-widest">
-                        Zona Desenhada
-                      </p>
-                      <p className="text-[10px] font-bold text-primary/60">
-                        Filtro de área ativo
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setActivePolygon(null)}
-                      className="p-2 hover:bg-white rounded-xl transition-colors text-primary"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
                   </div>
                 )}
               </div>
