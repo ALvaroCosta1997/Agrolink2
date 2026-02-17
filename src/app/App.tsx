@@ -477,7 +477,7 @@ export default function App() {
     switch (currentView) {
       case "explorar":
         return (
-          <div className="flex flex-col h-[calc(100vh-64px-64px)] md:h-[calc(100vh-96px)] md:flex-row overflow-hidden relative">
+          <div className="flex flex-col h-[calc(100dvh-128px)] md:h-[calc(100vh-96px)] md:flex-row overflow-hidden relative">
             <div
               className={cn(
                 "flex-1 md:w-[45%] lg:w-[40%] xl:w-[35%] overflow-y-auto bg-background p-4 md:p-6 flex flex-col gap-6 no-scrollbar",
@@ -655,10 +655,10 @@ export default function App() {
 
             <div
               className={cn(
-                "flex-1 relative md:block flex-[1.5] border-l-2 border-primary/10",
+                "flex-1 relative md:flex flex-[1.5] border-l-2 border-primary/10",
                 mobileViewMode === "list"
-                  ? "hidden md:block"
-                  : "block",
+                  ? "hidden md:flex"
+                  : "flex",
               )}
             >
               <MapView
@@ -683,6 +683,7 @@ export default function App() {
                   setShowSearchHere(false);
                 }}
                 onPolygonDeleted={() => setActivePolygon(null)}
+                mobileViewMode={mobileViewMode}
               />
 
               {showSearchHere && !activePolygon && (
@@ -1151,7 +1152,7 @@ export default function App() {
         </header>
       )}
 
-      <main className="flex-1 pb-24 md:pb-0 overflow-hidden">
+      <main className="flex-1 md:pb-0 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentView}

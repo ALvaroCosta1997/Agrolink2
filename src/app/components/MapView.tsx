@@ -26,6 +26,7 @@ interface MapViewProps {
   onToggleFavorite: (id: string) => void;
   onPolygonCreated?: (polygon: [number, number][]) => void;
   onPolygonDeleted?: () => void;
+  mobileViewMode?: "list" | "map";
 }
 
 export function MapView({ 
@@ -41,7 +42,8 @@ export function MapView({
   favorites,
   onToggleFavorite,
   onPolygonCreated,
-  onPolygonDeleted
+  onPolygonDeleted,
+  mobileViewMode
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -64,7 +66,10 @@ export function MapView({
       attributionControl: false,
       preferCanvas: true,
       fadeAnimation: true,
-      markerZoomAnimation: true
+      markerZoomAnimation: true,
+      tap: false, // Prevents 300ms delay on touch
+      touchZoom: true,
+      dragging: true
     });
 
     mapRef.current = map;
@@ -141,6 +146,16 @@ export function MapView({
       }
     };
   }, []);
+
+  // 1.1 Trigger InvalidateSize on visibility change
+  useEffect(() => {
+    if (mapRef.current && mobileViewMode === "map") {
+      const timer = setTimeout(() => {
+        mapRef.current?.invalidateSize();
+      }, 300); // Give enough time for DOM to update
+      return () => clearTimeout(timer);
+    }
+  }, [mobileViewMode]);
 
   // Helpers for content
   const getIconHtml = (listing: Listing, isSelected: boolean, hovered: boolean) => {

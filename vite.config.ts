@@ -19,20 +19,4 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
-
-  // Server configuration for development
-  server: {
-    host: '0.0.0.0',
-    port: 5173
-  },
-
-  // Preview configuration for production
-  preview: {
-    host: '0.0.0.0',
-    port: process.env.PORT || 4173,
-    allowedHosts: [
-      'agrolink2-cyjy.onrender.com',
-      '.onrender.com' // Permite todos os subdomínios do Render
-    ]
-  }
 })

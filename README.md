@@ -1,7 +1,7 @@
 
-  # Livestock Listings Platform
+  # AgroLink
 
-  This is a code bundle for Livestock Listings Platform. The original project is available at https://www.figma.com/design/5Ecl033SaEfmvMC8hY4LFw/Livestock-Listings-Platform.
+  This is a code bundle for AgroLink. The original project is available at https://www.figma.com/design/5Ecl033SaEfmvMC8hY4LFw/AgroLink.
 
   ## Running the code
 
