@@ -392,8 +392,8 @@ export function MapView({
         </div>
       )}
 
-      {/* Manual Draw Controls for clarity */}
-      <div className="absolute top-6 left-6 z-[1000] flex flex-col gap-3">
+      {/* Manual Draw Controls - Compact for Mobile, Detailed for Desktop */}
+      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-2">
         {drawTools.map((tool) => (
           <button
             key={tool.id}
@@ -401,7 +401,6 @@ export function MapView({
               if (tool.id === 'polygon') {
                 if (!mapRef.current) return;
                 
-                // If already drawing, clicking the tool can act as a toggle or finish
                 if (activeDrawHandler) {
                    try { 
                      activeDrawHandler.disable(); 
@@ -412,7 +411,7 @@ export function MapView({
 
                 const polygonTool = new (L as any).Draw.Polygon(mapRef.current, {
                   allowIntersection: false,
-                  showArea: false, // Disabling to avoid "type is not defined" error in leaflet-draw
+                  showArea: false,
                   metric: true,
                   repeatMode: false,
                   shapeOptions: { color: '#2d5a27', fillOpacity: 0.2, weight: 3 }
@@ -424,36 +423,37 @@ export function MapView({
                 onPolygonDeleted?.();
               }
             }}
-            className={`group flex items-center bg-white border-2 rounded-2xl p-1 pr-4 shadow-xl transition-all active:scale-95 ${activeDrawHandler && tool.id === 'polygon' ? 'border-primary' : 'border-slate-100 hover:border-primary'}`}
+            className={`group flex items-center bg-white/90 backdrop-blur-sm border-2 rounded-2xl p-1 shadow-lg transition-all active:scale-95 ${activeDrawHandler && tool.id === 'polygon' ? 'border-primary ring-4 ring-primary/10' : 'border-white hover:border-primary'}`}
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl group-hover:bg-primary/10 transition-colors ${activeDrawHandler && tool.id === 'polygon' ? 'bg-primary/20' : 'bg-slate-50'}`}>
+            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-xl md:text-2xl transition-colors ${activeDrawHandler && tool.id === 'polygon' ? 'bg-primary text-white' : 'bg-slate-50 text-secondary'}`}>
               {tool.icon}
             </div>
-            <div className="ml-3 text-left">
+            <div className="mx-2 pr-2 text-left hidden sm:block">
               <p className="text-[10px] font-black text-secondary uppercase leading-none">{tool.label}</p>
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1">{tool.hint}</p>
             </div>
+            {/* Mobile Tooltip indicator - small dot if active */}
+            {activeDrawHandler && tool.id === 'polygon' && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-white sm:hidden"></div>
+            )}
           </button>
         ))}
 
         {activeDrawHandler && (
           <button
             onClick={() => {
-              // Standard Leaflet Draw way to finish shape via public methods if available or internal
               if (activeDrawHandler && typeof activeDrawHandler.completeShape === 'function') {
                  activeDrawHandler.completeShape();
               } else if (activeDrawHandler && activeDrawHandler._finishShape) {
                  activeDrawHandler._finishShape();
               } else {
-                 // Fallback: disable triggers DRAWSTOP, but might not trigger CREATED if not enough points
                  activeDrawHandler.disable();
               }
             }}
-            className="flex items-center bg-primary border-2 border-white rounded-2xl p-4 shadow-xl hover:scale-105 transition-all active:scale-95 text-white animate-pulse"
+            className="flex items-center justify-center bg-primary border-2 border-white rounded-2xl h-12 px-4 shadow-xl hover:scale-105 transition-all active:scale-95 text-white animate-pulse"
           >
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-black uppercase leading-none">FECHAR ZONA</p>
-              <p className="text-[8px] font-bold opacity-80 uppercase tracking-tighter">Concluir e Filtrar</p>
+            <div className="flex flex-col items-center">
+              <p className="text-[10px] font-black uppercase leading-none">CONCLUIR</p>
             </div>
           </button>
         )}
