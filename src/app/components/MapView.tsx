@@ -311,6 +311,10 @@ export function MapView({
         marker.on('click', (e) => {
           L.DomEvent.stopPropagation(e);
           onMarkerClick(listing);
+          // Manually open popup on click since we disabled auto-popup on select for non-click cases
+          if (!marker.isPopupOpen()) {
+            marker.openPopup();
+          }
         });
         marker.on('mouseover', () => onMarkerHover(listing.id));
         marker.on('mouseout', () => onMarkerHover(null));
@@ -367,9 +371,7 @@ export function MapView({
         }));
         marker.setZIndexOffset(isSelected ? 2000 : (hovered ? 1000 : 0));
         
-        if (isSelected && !marker.isPopupOpen()) {
-          marker.openPopup();
-        }
+        // Removed: marker.openPopup() on selection to only open on manual click
       }
     });
   }, [hoveredId, selectedId, isMapReady]);
