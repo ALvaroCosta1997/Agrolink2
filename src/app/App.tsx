@@ -113,6 +113,9 @@ export default function App() {
     [number, number][] | null
   >(null);
   const [showSearchHere, setShowSearchHere] = useState(false);
+  const [sortBy, setSortBy] = useState<"RECENTES" | "ANTIGOS" | "BARATO" | "CARO">("RECENTES");
+
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   // New States for Chat and Call
   const [currentUser, setCurrentUser] = useState<UserType>({
@@ -317,7 +320,7 @@ export default function App() {
   }, []);
 
   const filteredListings = useMemo(() => {
-    return listings.filter((l) => {
+    const filtered = listings.filter((l) => {
       const matchSpecies =
         filters.species.length === 0 ||
         filters.species.includes(l.species);
@@ -328,11 +331,9 @@ export default function App() {
         filters.lifeStages.length === 0 ||
         filters.lifeStages.includes(l.lifeStage);
 
-      // Price Filter logic: Check price per head based on sex selection
       const matchPrice = (() => {
-        if (typeof l.price === "string") return true; // 'Sob consulta' always matches
+        if (typeof l.price === "string") return true; 
 
-        // If searching specifically for males
         const maleMatch =
           filters.minMales > 0
             ? l.maleQty > 0 && l.malePrice
@@ -340,7 +341,6 @@ export default function App() {
               : false
             : true;
 
-        // If searching specifically for females
         const femaleMatch =
           filters.minFemales > 0
             ? l.femaleQty > 0 && l.femalePrice
@@ -348,7 +348,6 @@ export default function App() {
               : false
             : true;
 
-        // If both counters are 0, match if ANY available price is within range
         if (
           filters.minMales === 0 &&
           filters.minFemales === 0
@@ -366,11 +365,9 @@ export default function App() {
         return maleMatch && femaleMatch;
       })();
 
-      // Sex Filter logic: Listing matches if it has AT LEAST the min males AND AT LEAST the min females
       const matchMales = l.maleQty >= filters.minMales;
       const matchFemales = l.femaleQty >= filters.minFemales;
 
-      // Weight Filter logic
       const matchMaleWeight =
         filters.minMaleWeight === 0 ||
         (l.maleAvgWeight &&
@@ -407,7 +404,42 @@ export default function App() {
         matchBounds
       );
     });
-  }, [listings, filters, currentBounds, activePolygon]);
+
+    // Sorting logic
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "RECENTES") {
+        return (
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime()
+        );
+      }
+      
+      if (sortBy === "ANTIGOS") {
+        return (
+          new Date(a.createdAt).getTime() -
+          new Date(b.createdAt).getTime()
+        );
+      }
+
+      const getMinPrice = (l: Listing) => {
+        if (l.price === "Sob consulta") return Infinity;
+        const prices = [];
+        if (l.maleQty > 0 && l.malePrice) prices.push(l.malePrice);
+        if (l.femaleQty > 0 && l.femalePrice) prices.push(l.femalePrice);
+        return prices.length > 0 ? Math.min(...prices) : Infinity;
+      };
+
+      const priceA = getMinPrice(a);
+      const priceB = getMinPrice(b);
+
+      if (sortBy === "BARATO") {
+        return priceA - priceB;
+      } else if (sortBy === "CARO") {
+        return priceB - priceA;
+      }
+      return 0;
+    });
+  }, [listings, filters, currentBounds, activePolygon, sortBy]);
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => {
@@ -488,55 +520,137 @@ export default function App() {
                   : "flex",
               )}
             >
-              <div className="flex flex-col gap-4">
-                <div className="flex gap-2 mb-4 items-center justify-between">
+              <div className="flex flex-col gap-4 sticky top-0 bg-background/95 backdrop-blur-md z-40 pb-2">
+                {/* Search & Filter Top Bar */}
+                <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowFilters(true)}
-                    className="h-14 flex-1 bg-white border-2 border-primary rounded-xl flex items-center justify-center gap-2 hover:bg-primary/5 transition-all shadow-md active:scale-95 group"
+                    className="h-12 flex-1 bg-white border border-slate-200 rounded-2xl flex items-center px-4 gap-3 hover:border-primary transition-all shadow-sm active:scale-[0.98] group relative overflow-hidden"
                   >
-                    <Filter
-                      className="w-5 h-5 text-primary"
-                      strokeWidth={3}
-                    />
-                    <span className="font-black text-sm text-primary uppercase tracking-tight">
-                      Filtros
-                    </span>
+                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <Filter
+                        className="w-4 h-4 text-primary"
+                        strokeWidth={3}
+                      />
+                    </div>
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className="font-black text-[9px] text-secondary/40 uppercase tracking-[0.15em] leading-none mb-0.5">Filtros</span>
+                      <span className="font-bold text-sm text-secondary truncate">
+                        {filters.species.length > 0 ? filters.species.join(', ') : 'Pesquisa Avançada'}
+                      </span>
+                    </div>
+                    {Object.values(filters).some(v => Array.isArray(v) ? v.length > 0 : (typeof v === 'number' && v > 0)) && (
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full shadow-sm" />
+                    )}
                   </button>
 
-                  {(
-                    ["Vacas", "Ovelhas", "Cabras"] as Species[]
-                  ).map((s) => (
+                  <div className="relative">
                     <button
-                      key={s}
-                      onClick={() => {
-                        setFilters((prev) => {
-                          const isSelected =
-                            prev.species.includes(s);
-                          return {
-                            ...prev,
-                            species: isSelected ? [] : [s],
-                          };
-                        });
-                      }}
+                      onClick={() => setShowSortMenu(!showSortMenu)}
                       className={cn(
-                        "h-14 flex-1 rounded-xl font-black text-xs border-2 transition-all shadow-sm flex flex-col items-center justify-center gap-0.5 active:scale-95 group",
-                        filters.species.includes(s)
-                          ? "bg-primary text-white border-primary"
-                          : "bg-white text-slate-400 border-slate-100",
+                        "h-12 px-4 bg-white border border-slate-200 rounded-2xl flex items-center gap-2 hover:border-secondary transition-all shadow-sm active:scale-[0.98]",
+                        showSortMenu && "border-secondary ring-2 ring-secondary/5"
                       )}
                     >
-                      <span className="text-lg leading-none group-active:scale-125 transition-transform">
-                        {s === "Vacas"
-                          ? "🐄"
-                          : s === "Ovelhas"
-                            ? "🐑"
-                            : "🐐"}
+                      <span className="text-lg">
+                        {sortBy === "RECENTES" ? "🕒" : sortBy === "ANTIGOS" ? "📅" : sortBy === "BARATO" ? "💰" : "💎"}
                       </span>
-                      <span className="uppercase tracking-tighter">
-                        {s}
+                      <span className="font-black text-[10px] text-secondary uppercase tracking-wider hidden sm:block">
+                        {sortBy === "RECENTES" ? "Recentes" : sortBy === "ANTIGOS" ? "Antigos" : sortBy === "BARATO" ? "Mais Barato" : "Mais Caro"}
                       </span>
                     </button>
-                  ))}
+
+                    <AnimatePresence>
+                      {showSortMenu && (
+                        <>
+                          <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowSortMenu(false)}
+                            className="fixed inset-0 z-[60] bg-black/5 md:bg-transparent"
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-100 rounded-3xl shadow-2xl z-[70] p-2 overflow-hidden"
+                          >
+                            {[
+                              { id: "RECENTES", label: "Recentes", icon: "🕒", sub: "Novidades primeiro" },
+                              { id: "ANTIGOS", label: "Antigos", icon: "📅", sub: "Publicados há mais tempo" },
+                              { id: "BARATO", label: "Mais Barato", icon: "💰", sub: "Preço baixo primeiro" },
+                              { id: "CARO", label: "Mais Caro", icon: "💎", sub: "Oportunidades premium" },
+                            ].map((opt) => (
+                              <button
+                                key={opt.id}
+                                onClick={() => {
+                                  setSortBy(opt.id as any);
+                                  setShowSortMenu(false);
+                                }}
+                                className={cn(
+                                  "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left active:scale-[0.97]",
+                                  sortBy === opt.id 
+                                    ? "bg-secondary text-white shadow-lg" 
+                                    : "hover:bg-slate-50 text-secondary"
+                                )}
+                              >
+                                <span className="text-xl">{opt.icon}</span>
+                                <div className="flex flex-col">
+                                  <span className="font-black text-xs uppercase tracking-tight">{opt.label}</span>
+                                  <span className={cn(
+                                    "text-[9px] font-bold uppercase tracking-tighter opacity-60",
+                                    sortBy === opt.id ? "text-white/80" : "text-slate-400"
+                                  )}>{opt.sub}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                {/* Species Filter Pills - Responsive fit without scroll */}
+                <div className="flex gap-1.5 sm:gap-4 pb-1">
+                  {(["Vacas", "Ovelhas", "Cabras"] as Species[]).map((s) => {
+                    const isSelected = filters.species.includes(s);
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setFilters((prev) => {
+                            const isSelectedNow = prev.species.includes(s);
+                            return {
+                              ...prev,
+                              species: isSelectedNow ? [] : [s],
+                            };
+                          });
+                        }}
+                        className={cn(
+                          "h-11 sm:h-16 flex-1 min-w-0 px-1 sm:px-4 rounded-2xl font-black text-[9px] sm:text-xs border-2 transition-all flex flex-col items-center justify-center gap-0.5 sm:gap-1 whitespace-nowrap active:scale-95",
+                          isSelected
+                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                            : "bg-white text-slate-400 border-slate-100 hover:border-primary/30 hover:text-primary"
+                        )}
+                      >
+                        <span className="text-lg sm:text-3xl leading-none transition-transform group-active:scale-125">
+                          {s === "Vacas" ? "🐄" : s === "Ovelhas" ? "🐑" : "🐐"}
+                        </span>
+                        <span className="uppercase tracking-tighter sm:tracking-widest leading-none text-[8px] sm:text-[10px]">{s}</span>
+                      </button>
+                    );
+                  })}
+                  {filters.species.length > 0 && (
+                    <button 
+                      onClick={() => setFilters(prev => ({ ...prev, species: [] }))}
+                      className="h-11 sm:h-16 px-3 sm:px-6 rounded-2xl font-black text-[9px] sm:text-xs text-red-500 bg-red-50 border-2 border-red-100 uppercase tracking-tighter sm:tracking-tight whitespace-nowrap hover:bg-red-100 transition-colors flex flex-col items-center justify-center gap-0.5"
+                    >
+                      <span className="text-base sm:text-xl">✕</span>
+                      <span className="leading-none">Limpar</span>
+                    </button>
+                  )}
                 </div>
 
                 {activePolygon && (
