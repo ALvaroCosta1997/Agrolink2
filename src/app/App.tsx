@@ -19,6 +19,10 @@ import {
   MessageCircle,
   MessageSquare,
   TrendingUp,
+  Phone,
+  Info,
+  CheckCircle2,
+  MapPin,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Resizable } from "re-resizable";
@@ -35,13 +39,13 @@ import { MyListingCard } from "./components/MyListingCard";
 import { FavoriteCard } from "./components/FavoriteCard";
 import { ChatHistory } from "./components/ChatHistory";
 import { CallModal } from "./components/CallModal";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-import { Chat, ChatMessage, User as UserType } from "./types";
+import { Chat, ChatMessage, User as UserType, UsageMode } from "./types";
+import { AuthGate } from "./components/AuthGate";
+import { LoginScreen } from "./components/LoginScreen";
+import { OnboardingScreen } from "./components/OnboardingScreen";
+import { Lock, LogIn } from "lucide-react";
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "./utils/cn";
 
 type View =
   | "explorar"
@@ -76,6 +80,71 @@ const isPointInPolygon = (
     if (intersect) inside = !inside;
   }
   return inside;
+};
+
+export type ContactPolicy = {
+  showDirectContact: boolean;
+  reason: 'ON' | 'OFF' | 'OUT_OF_HOURS';
+  startTime?: string;
+  endTime?: string;
+};
+
+const getContactPolicy = (listing: Listing, currentUser: UserType | null): ContactPolicy => {
+  // 1. Resolve Seller Visibility
+  const defaultVisibility = {
+    enabled: true,
+    mode: 'ALWAYS' as const,
+    startTime: '09:00',
+    endTime: '19:00'
+  };
+
+  const isOwner = currentUser && (
+    listing.sellerId === currentUser.id || 
+    listing.id.startsWith("generated-1")
+  );
+
+  const visibility = isOwner && currentUser 
+    ? (currentUser.contactVisibility || defaultVisibility)
+    : (listing.location.municipality === 'Beja' 
+      ? { enabled: true, mode: 'SCHEDULE' as const, startTime: '10:00', endTime: '14:00' }
+      : (listing.location.municipality === 'Elvas'
+        ? { enabled: false, mode: 'ALWAYS' as const, startTime: '09:00', endTime: '19:00' }
+        : defaultVisibility));
+
+  // 2. Compute Policy
+  if (!visibility.enabled) {
+    return { showDirectContact: false, reason: 'OFF' };
+  }
+
+  if (visibility.mode === 'ALWAYS') {
+    return { showDirectContact: true, reason: 'ON' };
+  }
+
+  // Schedule check (Portugal Time)
+  const now = new Date();
+  const options = { timeZone: 'Europe/Lisbon', hour12: false, hour: '2-digit', minute: '2-digit' } as const;
+  const currentTimeStr = now.toLocaleTimeString('pt-PT', options);
+  
+  const [currentH, currentM] = currentTimeStr.split(':').map(Number);
+  const [startH, startM] = visibility.startTime.split(':').map(Number);
+  const [endH, endM] = visibility.endTime.split(':').map(Number);
+  
+  const currentTotal = currentH * 60 + currentM;
+  const startTotal = startH * 60 + startM;
+  const endTotal = endH * 60 + endM;
+  
+  const inHours = currentTotal >= startTotal && currentTotal <= endTotal;
+
+  if (!inHours) {
+    return { 
+      showDirectContact: false, 
+      reason: 'OUT_OF_HOURS', 
+      startTime: visibility.startTime, 
+      endTime: visibility.endTime 
+    };
+  }
+
+  return { showDirectContact: true, reason: 'ON' };
 };
 
 export default function App() {
@@ -176,14 +245,90 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // New States for Chat and Call
-  const [currentUser, setCurrentUser] = useState<UserType>({
-    id: "user_current",
-    name: "Produtor Demo",
-    isLoggedIn: true,
-    draftMessage:
-      "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+  // New States for Auth
+  const [currentUser, setCurrentUser] = useState<UserType | null>(() => {
+    const saved = localStorage.getItem("agrolink_user");
+    return saved ? JSON.parse(saved) : null;
   });
+
+  const currentUserRef = useRef<UserType | null>(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+  const [isLoginVisible, setIsLoginVisible] = useState(false);
+  const [isAuthGateVisible, setIsAuthGateVisible] = useState(false);
+  const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+
+  const requireAuth = (action: () => void) => {
+    if (currentUser?.isLoggedIn) {
+      action();
+    } else {
+      setPendingAction(() => action);
+      setIsAuthGateVisible(true);
+    }
+  };
+
+  const handleLoginSuccess = (email: string) => {
+    const isFirstLogin = !localStorage.getItem("agrolink_user_exists");
+    const newUser: UserType = {
+      id: `user_${Date.now()}`,
+      name: email.split('@')[0],
+      email: email,
+      isLoggedIn: true,
+      draftMessage: "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+      mode: 'AMBOS',
+      region: 'Alentejo, Portugal',
+      isFirstLogin: isFirstLogin,
+      phoneNumber: "912345678", // Default for testing, user can change
+      phoneCountry: "+351",
+      contactVisibility: {
+        enabled: true,
+        mode: 'ALWAYS',
+        startTime: '09:00',
+        endTime: '19:00'
+      }
+    };
+    
+    setCurrentUser(newUser);
+    localStorage.setItem("agrolink_user", JSON.stringify(newUser));
+    localStorage.setItem("agrolink_user_exists", "true");
+    setIsLoginVisible(false);
+
+    if (isFirstLogin) {
+      setIsOnboardingVisible(true);
+    } else {
+      if (pendingAction) {
+        setTimeout(() => {
+          pendingAction();
+          setPendingAction(null);
+        }, 300);
+      }
+      toast.success("Bem-vindo de volta ao AgroLink!");
+    }
+  };
+
+  const handleOnboardingComplete = (updatedUser: UserType) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+    setIsOnboardingVisible(false);
+    toast.success("Perfil configurado com sucesso!");
+    
+    if (pendingAction) {
+      setTimeout(() => {
+        pendingAction();
+        setPendingAction(null);
+      }, 300);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("agrolink_user");
+    setCurrentView("explorar");
+    toast.info("Sessão terminada");
+  };
+
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<
     string | null
@@ -218,54 +363,50 @@ export default function App() {
   }, [chats]);
 
   const handleStartChat = (listing: Listing) => {
-    // Check if chat already exists for this listing/seller
-    let existingChat = chats.find(
-      (c) =>
-        c.listingId === listing.id ||
-        (c.sellerId === listing.sellerId &&
-          c.listingTitle ===
-            `${listing.species} — ${listing.breed}`),
-    );
+    requireAuth(() => {
+      if (!currentUser) return;
 
-    if (existingChat) {
-      setSelectedChatId(existingChat.id);
-    } else {
-      // Process draft message to include listing context
-      const listingContext = `${listing.species} — ${listing.breed || "Lote"}`;
-      const processedMessage =
-        currentUser.draftMessage.includes("{anuncio}")
-          ? currentUser.draftMessage.replace(
-              "{anuncio}",
-              listingContext,
-            )
-          : `Olá! Estou interessado no seu anúncio "${listingContext}". ${currentUser.draftMessage}`;
+      let existingChat = chats.find(
+        (c) =>
+          c.listingId === listing.id ||
+          (c.sellerId === listing.sellerId &&
+            c.listingTitle ===
+              `${listing.species} — ${listing.breed}`),
+      );
 
-      const newChat: Chat = {
-        id: `chat_${Date.now()}`,
-        listingId: listing.id,
-        sellerId: listing.sellerId,
-        buyerId: currentUser.id,
-        listingTitle: listingContext,
-        listingPreview: listing.photos[0],
-        userName: listing.contacts.name,
-        unread: false,
-        lastUpdate: new Date().toISOString(),
-        messages: [
-          {
-            id: `msg_${Date.now()}`,
-            text: processedMessage,
-            senderId: currentUser.id,
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          },
-        ],
-      };
-      setChats((prev) => [newChat, ...prev]);
-      setSelectedChatId(newChat.id);
-    }
-    setCurrentView("mensagens");
+      if (existingChat) {
+        setSelectedChatId(existingChat.id);
+      } else {
+        const listingContext = `${listing.species} — ${listing.breed || "Lote"}`;
+        const processedMessage =
+          currentUser.draftMessage.includes("{anuncio}")
+            ? currentUser.draftMessage.replace(
+                "{anuncio}",
+                listingContext,
+              )
+            : `Olá! Estou interessado no seu anúncio "${listingContext}". ${currentUser.draftMessage}`;
+
+        const newChat: Chat = {
+          id: `chat_${Date.now()}`,
+          listingId: listing.id,
+          sellerId: listing.sellerId,
+          buyerId: currentUser.id,
+          listingTitle: listingContext,
+          listingPreview: listing.photos[0],
+          userName: listing.contacts.name,
+          unread: false,
+          lastUpdate: new Date().toISOString(),
+          messages: [],
+        };
+        setChats((prev) => [newChat, ...prev]);
+        setSelectedChatId(newChat.id);
+        
+        // Pass the draft message to ChatHistory state via some mechanism
+        // Since we don't have a direct prop for the active draft in ChatHistory, 
+        // let's add it to the ChatHistory component logic in the next step
+      }
+      setCurrentView("mensagens");
+    });
   };
 
   const handleDeleteChat = (chatId: string) => {
@@ -275,14 +416,26 @@ export default function App() {
   };
 
   const handleCall = (listing: Listing) => {
-    setCallModalData({
-      isOpen: true,
-      phone: listing.contacts.phone,
-      name: listing.contacts.name,
+    requireAuth(() => {
+      setCallModalData({
+        isOpen: true,
+        phone: listing.contacts.phone,
+        name: listing.contacts.name,
+      });
+    });
+  };
+
+  const handleWhatsApp = (listing: Listing) => {
+    requireAuth(() => {
+      const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
+      const finalPhone = cleanPhone.startsWith('351') ? cleanPhone : `351${cleanPhone}`;
+      const message = encodeURIComponent(`Olá, vi o seu anúncio de ${listing.species} (${listing.breed || ''}) no AgroLink e gostaria de mais informações.`);
+      window.open(`https://wa.me/${finalPhone}?text=${message}`, '_blank');
     });
   };
 
   const handleSendMessage = (chatId: string, text: string) => {
+    if (!currentUser) return;
     setChats((prev) =>
       prev.map((c) => {
         if (c.id === chatId) {
@@ -480,30 +633,42 @@ export default function App() {
   }, [listings, filters, currentBounds, activePolygon, sortBy]);
 
   const toggleFavorite = (id: string) => {
-    setFavorites((prev) => {
-      const next = prev.includes(id)
-        ? prev.filter((fid) => fid !== id)
-        : [...prev, id];
-      localStorage.setItem(
-        "agrolink_favorites",
-        JSON.stringify(next),
-      );
-      if (!prev.includes(id))
-        toast.success("Guardado nos favoritos");
-      else toast.info("Removido dos favoritos");
-      return next;
+    requireAuth(() => {
+      setFavorites((prev) => {
+        const next = prev.includes(id)
+          ? prev.filter((fid) => fid !== id)
+          : [...prev, id];
+        localStorage.setItem(
+          "agrolink_favorites",
+          JSON.stringify(next),
+        );
+        if (!prev.includes(id))
+          toast.success("Guardado nos favoritos");
+        else toast.info("Removido dos favoritos");
+        return next;
+      });
     });
   };
 
   const handlePublish = (newListing: Listing) => {
-    const updated = [newListing, ...listings];
-    setListings(updated);
-    localStorage.setItem(
-      "agrolink_listings",
-      JSON.stringify(updated),
-    );
-    setCurrentView("meus-anuncios");
-    toast.success("Anúncio publicado com sucesso!");
+    requireAuth(() => {
+      // Ensure the listing is linked to the actual user who is now logged in
+      const user = currentUserRef.current;
+      const finalListing = {
+        ...newListing,
+        sellerId: user?.id || newListing.sellerId
+      };
+      
+      const updated = [finalListing, ...listings];
+      setListings(updated);
+      localStorage.setItem(
+        "agrolink_listings",
+        JSON.stringify(updated),
+      );
+      
+      setCurrentView("meus-anuncios");
+      toast.success("Anúncio publicado com sucesso!");
+    });
   };
 
   const handleListingClick = (listing: Listing) => {
@@ -590,12 +755,15 @@ export default function App() {
                     handleListingClick={handleListingClick}
                     handleStartChat={handleStartChat}
                     handleCall={handleCall}
+                    handleWhatsApp={handleWhatsApp}
                     hoveredListingId={hoveredListingId}
                     setHoveredListingId={setHoveredListingId}
                     selectedListingId={selectedListingId}
                     viewedListings={viewedListings}
                     navigateToDetails={navigateToDetails}
                     cardRefs={cardRefs}
+                    isLoggedIn={!!currentUser}
+                    getContactPolicy={(l) => getContactPolicy(l, currentUser)}
                   />
                 </div>
               </Resizable>
@@ -623,12 +791,15 @@ export default function App() {
                   handleListingClick={handleListingClick}
                   handleStartChat={handleStartChat}
                   handleCall={handleCall}
+                  handleWhatsApp={handleWhatsApp}
                   hoveredListingId={hoveredListingId}
                   setHoveredListingId={setHoveredListingId}
                   selectedListingId={selectedListingId}
                   viewedListings={viewedListings}
                   navigateToDetails={navigateToDetails}
                   cardRefs={cardRefs}
+                  isLoggedIn={!!currentUser}
+                  getContactPolicy={(l) => getContactPolicy(l, currentUser)}
                 />
               </div>
             )}
@@ -649,6 +820,7 @@ export default function App() {
                 }
                 onChat={(l) => handleStartChat(l)}
                 onCall={(l) => handleCall(l)}
+                onWhatsApp={(l) => handleWhatsApp(l)}
                 hoveredId={hoveredListingId}
                 onMarkerHover={setHoveredListingId}
                 onBoundsChange={(bounds) => {
@@ -664,6 +836,8 @@ export default function App() {
                 }}
                 onPolygonDeleted={() => setActivePolygon(null)}
                 mobileViewMode={mobileViewMode}
+                getContactPolicy={(l) => getContactPolicy(l, currentUser)}
+                contactVisibilityVersion={currentUser?.contactVisibility}
               />
 
               {showSearchHere && !activePolygon && (
@@ -715,42 +889,73 @@ export default function App() {
           </div>
         );
       case "favoritos":
+        if (!currentUser?.isLoggedIn) {
+          return (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto h-full">
+              <div className="w-24 h-24 bg-primary/5 rounded-[40px] flex items-center justify-center mb-8">
+                <Heart className="w-12 h-12 text-primary/20" />
+              </div>
+              <h2 className="text-3xl font-black text-secondary mb-4 italic">
+                Guardar Favoritos
+              </h2>
+              <p className="text-slate-500 font-medium mb-10 leading-relaxed">
+                Entra na tua conta para guardar os anúncios que te interessam e recebê-los no teu telemóvel.
+              </p>
+              <button
+                onClick={() => setIsAuthGateVisible(true)}
+                className="w-full h-16 bg-primary text-white rounded-2xl font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+              >
+                <LogIn className="w-6 h-6" />
+                Entrar para Guardar
+              </button>
+              <button
+                onClick={() => setCurrentView("explorar")}
+                className="mt-6 text-slate-400 font-bold uppercase text-xs tracking-widest hover:text-primary transition-colors"
+              >
+                Continuar a navegar
+              </button>
+            </div>
+          );
+        }
         const favoriteListings = listings.filter((l) =>
           favorites.includes(l.id),
         );
         return (
-          <div className="p-6 md:p-10 max-w-6xl mx-auto flex flex-col gap-10">
-            <div className="flex flex-col gap-2">
-              <h1 className="text-5xl font-black text-secondary">
-                Favoritos
-              </h1>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-                {favoriteListings.length}{" "}
-                {favoriteListings.length === 1
-                  ? "Anúncio guardado"
-                  : "Anúncios guardados"}
-              </p>
+          <div className="p-4 md:p-10 max-w-5xl mx-auto pb-32">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h1 className="text-4xl md:text-5xl font-black text-secondary leading-tight italic">
+                  Favoritos
+                </h1>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
+                  Anúncios Guardados
+                </p>
+              </div>
+              <div className="bg-primary/10 px-4 py-2 rounded-xl text-primary font-black text-sm">
+                {favorites.length} ITENS
+              </div>
             </div>
 
-            {favoriteListings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center text-slate-400 bg-white rounded-[48px] border-4 border-dashed border-primary/10">
-                <Heart className="w-24 h-24 mb-6 opacity-10" />
-                <p className="text-2xl font-black text-secondary">
-                  Ainda não guardou anúncios
+            {favorites.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-[48px] border-2 border-dashed border-slate-200 p-10">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                  <Heart className="w-10 h-10 text-slate-200" />
+                </div>
+                <p className="text-xl font-black text-secondary">
+                  Ainda não guardou nenhum anúncio
                 </p>
-                <p className="text-lg font-medium">
-                  Toque no coração para guardar oportunidades
-                  interessantes.
+                <p className="text-sm font-bold text-slate-400 mt-2 max-w-xs mx-auto">
+                  Toque no coração nos anúncios para os guardar aqui e ver mais tarde.
                 </p>
                 <button
                   onClick={() => setCurrentView("explorar")}
-                  className="mt-8 px-10 py-4 bg-primary text-white rounded-2xl font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform"
+                  className="mt-8 px-8 h-14 bg-secondary text-white rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all shadow-lg"
                 >
                   Explorar Mercado
                 </button>
               </div>
             ) : (
-              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {favoriteListings.map((l) => (
                   <FavoriteCard
                     key={l.id}
@@ -759,6 +964,9 @@ export default function App() {
                     onClick={() => navigateToDetails(l)}
                     onChat={() => handleStartChat(l)}
                     onCall={() => handleCall(l)}
+                    onWhatsApp={() => handleWhatsApp(l)}
+                    isLoggedIn={!!currentUser}
+                    policy={getContactPolicy(l, currentUser)}
                   />
                 ))}
               </div>
@@ -768,12 +976,30 @@ export default function App() {
       case "meus-anuncios":
         const myAds = listings.filter(
           (l) =>
-            l.sellerId === "user_current" ||
-            l.sellerId === "user_1" ||
+            l.sellerId === (currentUser?.id || "none") ||
             l.id.startsWith("generated-1"),
         );
+        
+        const visibility = currentUser?.contactVisibility || {
+          enabled: true,
+          mode: 'ALWAYS',
+          startTime: '09:00',
+          endTime: '19:00'
+        };
+
+        const updateVisibility = (updates: Partial<typeof visibility>) => {
+          if (!currentUser) return;
+          const updatedUser = {
+            ...currentUser,
+            contactVisibility: { ...visibility, ...updates }
+          };
+          setCurrentUser(updatedUser);
+          localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+          toast.success("Guardado. Aplicado a todos os anúncios.");
+        };
+
         return (
-          <div className="p-6 md:p-10 max-w-5xl mx-auto flex flex-col gap-10 pb-32">
+          <div className="p-6 md:p-10 max-w-5xl mx-auto flex flex-col gap-8 pb-32">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setCurrentView("perfil")}
@@ -782,13 +1008,150 @@ export default function App() {
                 <ChevronLeft className="w-6 h-6" />
               </button>
               <div className="flex flex-col gap-1">
-                <h1 className="text-4xl font-black text-secondary uppercase leading-none">
+                <h1 className="text-4xl font-black text-secondary uppercase leading-none italic">
                   Os Meus Anúncios
                 </h1>
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-green-500" />
-                  +12% vistas esta semana
+                  Gere as suas vendas e contactos
                 </p>
+              </div>
+            </div>
+
+            {/* CONTROLO DE CONTACTOS PANEL */}
+            <div className="bg-white rounded-[40px] border-4 border-primary/10 shadow-xl overflow-hidden">
+              <div className="bg-primary/5 p-6 border-b-2 border-primary/5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                    <Phone className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-secondary uppercase leading-none">Controlo de Contactos</h2>
+                    <p className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">Gira quem lhe pode ligar</p>
+                  </div>
+                </div>
+                <div className="group relative">
+                  <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary/30 hover:text-primary transition-colors border-2 border-primary/5">
+                    <Info className="w-5 h-5" />
+                  </button>
+                  <div className="absolute right-0 top-12 w-64 p-4 bg-slate-900 text-white rounded-2xl text-xs font-bold leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-2xl">
+                    <p className="text-primary font-black mb-1 uppercase tracking-widest text-[9px]">Porque existe isto?</p>
+                    Para evitares muitos contactos. Podes ligar/desligar quando quiseres.
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 flex flex-col gap-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-black text-secondary uppercase tracking-tight">Mostrar WhatsApp e telefone</h3>
+                    <p className="text-sm font-bold text-slate-400 max-w-xs mt-1 italic">
+                      Desliga para não receber chamadas. Os interessados falam por AgroLink Chat.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => updateVisibility({ enabled: !visibility.enabled })}
+                    className={cn(
+                      "w-24 h-12 rounded-full p-1 transition-all duration-300 relative",
+                      visibility.enabled ? "bg-primary" : "bg-slate-200"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 bg-white rounded-full shadow-lg transform transition-all duration-300 flex items-center justify-center",
+                      visibility.enabled ? "translate-x-12" : "translate-x-0"
+                    )}>
+                      {visibility.enabled ? <CheckCircle2 className="w-6 h-6 text-primary" /> : <X className="w-6 h-6 text-slate-300" />}
+                    </div>
+                  </button>
+                </div>
+
+                {visibility.enabled && (
+                  <div className="flex flex-col gap-8 pt-6 border-t-2 border-slate-50">
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Quando mostrar</p>
+                      <div className="flex bg-slate-100 p-1.5 rounded-[24px] gap-1.5">
+                        {[
+                          { id: 'ALWAYS', label: 'Sempre' },
+                          { id: 'SCHEDULE', label: 'Só no horário' }
+                        ].map((mode) => (
+                          <button
+                            key={mode.id}
+                            onClick={() => updateVisibility({ mode: mode.id as any })}
+                            className={cn(
+                              "flex-1 py-4 px-6 rounded-[20px] font-black text-sm uppercase tracking-widest transition-all",
+                              visibility.mode === mode.id 
+                                ? "bg-white text-secondary shadow-md" 
+                                : "text-slate-400 hover:text-slate-600"
+                            )}
+                          >
+                            {mode.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {visibility.mode === 'SCHEDULE' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest italic">Das</label>
+                          <input 
+                            type="time" 
+                            value={visibility.startTime}
+                            onChange={(e) => updateVisibility({ startTime: e.target.value })}
+                            className="w-full h-16 bg-white border-2 border-slate-100 rounded-3xl px-6 font-black text-2xl text-secondary focus:border-primary outline-none transition-all shadow-inner"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest italic">Até</label>
+                          <input 
+                            type="time" 
+                            value={visibility.endTime}
+                            onChange={(e) => updateVisibility({ endTime: e.target.value })}
+                            className="w-full h-16 bg-white border-2 border-slate-100 rounded-3xl px-6 font-black text-2xl text-secondary focus:border-primary outline-none transition-all shadow-inner"
+                          />
+                        </div>
+                        <p className="col-span-2 text-[10px] font-bold text-slate-400 italic text-center mt-2">Fora deste horário escondemos WhatsApp e telefone.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="bg-slate-50 rounded-3xl p-6 border-2 border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">No anúncio vai aparecer</p>
+                  <div className="flex flex-wrap gap-3">
+                    <span className="bg-white border-2 border-green-100 text-green-600 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                      <CheckCircle2 className="w-4 h-4" /> Mensagem na app
+                    </span>
+                    {!visibility.enabled ? (
+                      <>
+                        <span className="bg-white border-2 border-red-50 text-red-300 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                          <X className="w-4 h-4" strokeWidth={3} /> WhatsApp
+                        </span>
+                        <span className="bg-white border-2 border-red-50 text-red-300 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                          <X className="w-4 h-4" strokeWidth={3} /> Telefone
+                        </span>
+                      </>
+                    ) : visibility.mode === 'ALWAYS' ? (
+                      <>
+                        <span className="bg-white border-2 border-green-100 text-green-600 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                          <CheckCircle2 className="w-4 h-4" /> WhatsApp
+                        </span>
+                        <span className="bg-white border-2 border-green-100 text-green-600 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                          <CheckCircle2 className="w-4 h-4" /> Telefone
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="bg-white border-2 border-blue-50 text-blue-500 px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                          <CheckCircle2 className="w-4 h-4" /> WhatsApp (no horário)
+                        </span>
+                        <span className="bg-white border-2 border-blue-50 text-blue-500 px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                          <CheckCircle2 className="w-4 h-4" /> Telefone (no horário)
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -874,6 +1237,11 @@ export default function App() {
                         "Anúncio marcado como vendido!",
                       )
                     }
+                    policy={getContactPolicy(l, currentUser)}
+                    onNavigateToDetails={(listing) => {
+                      setSelectedListing(listing);
+                      setCurrentView("detalhes");
+                    }}
                   />
                 ))}
               </div>
@@ -911,6 +1279,7 @@ export default function App() {
           <PublishWizard
             onCancel={() => setCurrentView("explorar")}
             onPublish={handlePublish}
+            currentUser={currentUser}
           />
         );
       case "detalhes":
@@ -924,103 +1293,278 @@ export default function App() {
             isFavorite={favorites.includes(selectedListing.id)}
             onStartChat={() => handleStartChat(selectedListing)}
             onCall={() => handleCall(selectedListing)}
+            isLoggedIn={!!currentUser}
+            onRequireAuth={requireAuth}
+            policy={getContactPolicy(selectedListing, currentUser)}
           />
         ) : null;
       case "perfil":
         const myAdsCount = listings.filter(
           (l) =>
-            l.sellerId === "user_current" ||
-            l.sellerId === "user_1" ||
-            l.id.startsWith("generated-1"),
+            l.sellerId === (currentUser?.id || "none") ||
+            l.id.startsWith("generated-1"), // Mock for guest
         ).length;
+
         return (
-          <div className="p-6 md:p-10 max-w-2xl mx-auto flex flex-col gap-8 pb-32">
-            <h1 className="text-5xl font-black text-secondary">
+          <div className="p-6 md:p-10 max-w-2xl mx-auto flex flex-col gap-10 pb-32">
+            <h1 className="text-5xl font-black text-secondary italic">
               O Meu Perfil
             </h1>
-            <div className="bg-white p-10 rounded-[48px] border-2 border-primary/10 flex flex-col sm:flex-row items-center gap-8 shadow-sm">
-              <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
-                <User className="w-12 h-12 text-primary" />
-              </div>
-              <div className="text-center sm:text-left flex-1">
-                <h2 className="text-3xl font-black text-secondary">
-                  {currentUser.name}
-                </h2>
-                <p className="text-lg font-bold text-slate-400 uppercase tracking-widest">
-                  Alentejo, Portugal
-                </p>
-              </div>
-              <button
-                onClick={() => setCurrentView("explorar")}
-                className="p-3 bg-slate-100 rounded-2xl text-slate-400 hover:text-red-500 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+
+            {/* Account Header Card */}
+            <div className="bg-white p-8 md:p-10 rounded-[48px] border-2 border-primary/10 shadow-sm">
+              {!currentUser?.isLoggedIn ? (
+                <div className="flex flex-col gap-6">
+                  <div className="flex flex-col sm:flex-row items-center gap-6">
+                    <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center border-4 border-white shadow-lg shrink-0">
+                      <User className="w-12 h-12 text-slate-300" />
+                    </div>
+                    <div className="text-center sm:text-left flex-1">
+                      <h2 className="text-3xl font-black text-secondary leading-tight italic">Visitante</h2>
+                      <p className="text-sm font-bold text-slate-500 leading-tight mt-1">
+                        Entra para ver contactos, falar por WhatsApp e guardar favoritos.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={() => setIsAuthGateVisible(true)}
+                      className="w-full h-18 bg-primary text-white rounded-[32px] font-black text-xl flex items-center justify-center gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-transform"
+                    >
+                      <LogIn className="w-6 h-6" strokeWidth={3} />
+                      ENTRAR
+                    </button>
+                    <button
+                      onClick={() => setCurrentView("explorar")}
+                      className="w-full py-4 text-slate-400 font-black text-xs uppercase tracking-widest hover:text-primary transition-colors text-center"
+                    >
+                      Continuar a navegar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-xl shrink-0">
+                    {currentUser.email ? (
+                      <img 
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-10 h-10 text-primary" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={currentUser.name}
+                      onChange={(e) => {
+                        const updatedUser = { ...currentUser, name: e.target.value };
+                        setCurrentUser(updatedUser);
+                        localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+                      }}
+                      className="text-3xl font-black text-secondary truncate w-full bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg px-2 -ml-2"
+                    />
+                    <div className="flex flex-col gap-1 mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">PT</span>
+                        <input
+                          type="text"
+                          value={currentUser.phoneNumber || ''}
+                          placeholder="Adicionar telefone"
+                          onChange={(e) => {
+                            const updatedUser = { ...currentUser, phoneNumber: e.target.value };
+                            setCurrentUser(updatedUser);
+                            localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+                          }}
+                          className="text-lg font-bold text-primary bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg px-1 w-full"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-slate-400" />
+                        <select
+                          value={currentUser.region?.split(',')[0] || ''}
+                          onChange={(e) => {
+                            const updatedUser = { ...currentUser, region: `${e.target.value}, Portugal` };
+                            setCurrentUser(updatedUser);
+                            localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+                          }}
+                          className="text-sm font-bold text-slate-500 bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg px-1 uppercase tracking-widest"
+                        >
+                          <option value="">Selecionar Distrito</option>
+                          {[
+                            'Beja', 'Évora', 'Portalegre', 'Santarém', 'Setúbal', 'Castelo Branco', 'Faro', 'Lisboa', 'Porto', 'Braga', 'Viseu', 'Aveiro', 'Coimbra', 'Leiria', 'Viana do Castelo', 'Vila Real', 'Bragança', 'Guarda'
+                          ].sort().map(d => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="px-6 py-4 bg-red-50 text-red-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all shrink-0"
+                  >
+                    Sair
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* My Listings Entry Point - Unified UI */}
-            <button
-              onClick={() => setCurrentView("meus-anuncios")}
-              className="w-full bg-secondary text-white p-8 rounded-[40px] flex items-center justify-between shadow-xl shadow-secondary/10 group active:scale-[0.98] transition-all"
-            >
-              <div className="flex items-center gap-6">
-                <div className="w-16 h-16 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur-sm">
-                  <LayoutGrid className="w-8 h-8 text-white" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-2xl font-black uppercase leading-none">
-                    Os Meus Anúncios
-                  </h3>
-                  <p className="text-sm font-bold text-white/60 uppercase tracking-widest mt-1">
-                    {myAdsCount} anúncios publicados
-                  </p>
-                </div>
+            {/* COMPRAR Section */}
+            <div className="flex flex-col gap-4">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-6 italic">COMPRAR</h3>
+              <div className="grid gap-3">
+                {[
+                  {
+                    id: 'favoritos',
+                    title: 'FAVORITOS',
+                    subtitle: 'Anúncios guardados',
+                    icon: Heart,
+                    badge: currentUser?.isLoggedIn ? favorites.length : null,
+                    locked: !currentUser?.isLoggedIn,
+                    lockText: 'Entrar para guardar'
+                  },
+                  {
+                    id: 'mensagens',
+                    title: 'MENSAGENS',
+                    subtitle: 'Conversas com produtores',
+                    icon: MessageCircle,
+                    badge: currentUser?.isLoggedIn ? chats.filter(c => c.unread).length : null,
+                    locked: !currentUser?.isLoggedIn,
+                    lockText: 'Entrar para enviar mensagens'
+                  }
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      if (item.locked) {
+                        setPendingAction(() => () => setCurrentView(item.id as View));
+                        setIsAuthGateVisible(true);
+                      } else {
+                        setCurrentView(item.id as View);
+                      }
+                    }}
+                    className="w-full bg-white p-7 rounded-[32px] border-2 border-primary/5 flex items-center justify-between hover:border-primary/20 transition-all shadow-sm active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-5 text-left">
+                      <div className={cn(
+                        "w-14 h-14 rounded-2xl flex items-center justify-center",
+                        item.locked ? "bg-slate-50 text-slate-300" : "bg-primary/5 text-primary"
+                      )}>
+                        <item.icon className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <h4 className={cn(
+                          "text-xl font-black uppercase leading-none",
+                          item.locked ? "text-slate-400" : "text-secondary"
+                        )}>{item.title}</h4>
+                        <p className="text-xs font-bold text-slate-400 mt-1">
+                          {item.locked ? item.lockText : item.subtitle}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {item.badge !== null && item.badge > 0 && (
+                        <span className="bg-primary text-white text-[10px] font-black px-2.5 py-1 rounded-full">
+                          {item.badge}
+                        </span>
+                      )}
+                      {item.locked ? (
+                        <Lock className="w-6 h-6 text-slate-200" />
+                      ) : (
+                        <ChevronLeft className="w-8 h-8 rotate-180 text-primary/30" />
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
-              <ChevronLeft className="w-10 h-10 rotate-180 opacity-40 group-hover:opacity-100 transition-opacity" />
-            </button>
-
-            {/* Quick Settings - Draft Message */}
-            <div className="bg-primary/5 rounded-[40px] p-8 border-2 border-primary/10">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                  <MessageCircle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-secondary leading-none uppercase">
-                    Mensagem Automática
-                  </h3>
-                  <p className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">
-                    Configuração de Resposta Rápida
-                  </p>
-                </div>
-              </div>
-              <textarea
-                value={currentUser.draftMessage}
-                onChange={(e) =>
-                  setCurrentUser((prev) => ({
-                    ...prev,
-                    draftMessage: e.target.value,
-                  }))
-                }
-                className="w-full h-32 bg-white border-2 border-primary/10 rounded-3xl p-6 font-bold text-secondary text-sm focus:border-primary outline-none transition-all resize-none mb-4"
-                placeholder="Escreva a sua mensagem automática padrão..."
-              />
-              <p className="text-[10px] font-bold text-slate-400 italic text-center leading-tight">
-                Esta mensagem será enviada automaticamente
-                quando iniciar uma nova conversa com um
-                vendedor.
-              </p>
             </div>
 
-            <div className="grid gap-3">
+            {/* VENDER Section */}
+            <div className="flex flex-col gap-4">
+              <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-6 italic">VENDER</h3>
+              <div className="grid gap-3">
+                {/* Publicar CTA */}
+                <button
+                  onClick={() => requireAuth(() => setCurrentView("publicar"))}
+                  className="w-full bg-primary p-8 rounded-[40px] flex items-center justify-between shadow-xl shadow-primary/20 group active:scale-[0.98] transition-all"
+                >
+                  <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-sm border-2 border-white/20">
+                      <PlusCircle className="w-8 h-8 text-white" strokeWidth={3} />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-2xl font-black uppercase leading-none text-white">
+                        Publicar Anúncio
+                      </h3>
+                      <p className="text-sm font-bold text-white/70 uppercase tracking-widest mt-1">
+                        Vender vacas, ovelhas ou cabras
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronLeft className="w-10 h-10 rotate-180 text-white/40 group-hover:text-white transition-colors" />
+                </button>
+
+                {/* Os Meus Anúncios */}
+                <button
+                  onClick={() => {
+                    if (!currentUser?.isLoggedIn) {
+                      setPendingAction(() => () => setCurrentView("meus-anuncios"));
+                      setIsAuthGateVisible(true);
+                    } else {
+                      setCurrentView("meus-anuncios");
+                    }
+                  }}
+                  className={cn(
+                    "w-full p-8 rounded-[40px] flex items-center justify-between transition-all active:scale-[0.98]",
+                    !currentUser?.isLoggedIn 
+                      ? "bg-slate-50 border-2 border-dashed border-slate-200" 
+                      : "bg-secondary text-white shadow-xl shadow-secondary/10 group"
+                  )}
+                >
+                  <div className="flex items-center gap-6 text-left">
+                    <div className={cn(
+                      "w-16 h-16 rounded-3xl flex items-center justify-center backdrop-blur-sm",
+                      !currentUser?.isLoggedIn ? "bg-slate-100 text-slate-300" : "bg-white/10 text-white"
+                    )}>
+                      <LayoutGrid className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className={cn(
+                        "text-2xl font-black uppercase leading-none",
+                        !currentUser?.isLoggedIn ? "text-slate-400" : "text-white"
+                      )}>
+                        Os Meus Anúncios
+                      </h3>
+                      <p className={cn(
+                        "text-sm font-bold uppercase tracking-widest mt-1",
+                        !currentUser?.isLoggedIn ? "text-slate-300" : "text-white/60"
+                      )}>
+                        {!currentUser?.isLoggedIn ? "Entrar para gerir" : `${myAdsCount} anúncios publicados`}
+                      </p>
+                    </div>
+                  </div>
+                  {!currentUser?.isLoggedIn ? (
+                    <Lock className="w-8 h-8 text-slate-200" />
+                  ) : (
+                    <ChevronLeft className="w-10 h-10 rotate-180 opacity-40 group-hover:opacity-100 transition-opacity" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Help Section */}
+            <div className="flex flex-col gap-3">
               {[
-                "Segurança e Pagamentos",
-                "Contactar Apoio",
-                "Sair da Conta",
+                "Ajuda",
+                "Segurança (Evitar burlas)",
+                "Termos e Privacidade",
               ].map((item, i) => (
                 <button
                   key={i}
-                  className="w-full text-left px-8 py-6 bg-white border-2 border-primary/5 rounded-[32px] flex items-center justify-between hover:border-primary/20 transition-all"
+                  className="w-full text-left px-8 py-6 bg-white border-2 border-primary/5 rounded-[32px] flex items-center justify-between hover:border-primary/20 transition-all active:scale-[0.98]"
                 >
                   <span className="text-lg font-black text-secondary">
                     {item}
@@ -1028,6 +1572,14 @@ export default function App() {
                   <ChevronLeft className="w-6 h-6 rotate-180 text-primary/30" />
                 </button>
               ))}
+              {currentUser?.isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-center py-6 text-red-500 font-black uppercase text-xs tracking-[0.2em] mt-4"
+                >
+                  Terminar Sessão
+                </button>
+              )}
             </div>
           </div>
         );
@@ -1075,7 +1627,13 @@ export default function App() {
           ].map((item) => (
             <button
               key={item.id}
-              onClick={() => setCurrentView(item.id as View)}
+              onClick={() => {
+                if (item.id === "mensagens" || item.id === "favoritos") {
+                  requireAuth(() => setCurrentView(item.id as View));
+                } else {
+                  setCurrentView(item.id as View);
+                }
+              }}
               className={cn(
                 "flex items-center gap-2 xl:gap-3 px-4 xl:px-8 py-4 rounded-full text-[11px] xl:text-sm font-black uppercase tracking-widest transition-all whitespace-nowrap",
                 currentView === item.id
@@ -1091,7 +1649,7 @@ export default function App() {
 
         <div className="flex justify-end">
           <button
-            onClick={() => setCurrentView("publicar")}
+            onClick={() => requireAuth(() => setCurrentView("publicar"))}
             className="bg-secondary text-white h-16 px-6 xl:px-10 rounded-2xl font-black text-base xl:text-lg shadow-xl shadow-secondary/20 hover:scale-105 transition-transform shrink-0 whitespace-nowrap"
           >
             Publicar Venda
@@ -1119,7 +1677,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             {currentView === "explorar" && (
               <button
-                onClick={() => setCurrentView("publicar")}
+                onClick={() => requireAuth(() => setCurrentView("publicar"))}
                 className="w-12 h-12 bg-secondary text-white rounded-xl flex items-center justify-center shadow-lg"
               >
                 <PlusCircle
@@ -1160,7 +1718,13 @@ export default function App() {
         ].map((item) => (
           <button
             key={item.id}
-            onClick={() => setCurrentView(item.id as View)}
+            onClick={() => {
+              if (item.id === "mensagens" || item.id === "favoritos") {
+                requireAuth(() => setCurrentView(item.id as View));
+              } else {
+                setCurrentView(item.id as View);
+              }
+            }}
             className={cn(
               "flex flex-col items-center gap-2 transition-all",
               currentView === item.id
@@ -1201,6 +1765,34 @@ export default function App() {
         filters={filters}
         setFilters={setFilters}
       />
+
+      <AuthGate 
+        isOpen={isAuthGateVisible}
+        onClose={() => setIsAuthGateVisible(false)}
+        onLogin={() => {
+          setIsAuthGateVisible(false);
+          setIsLoginVisible(true);
+        }}
+      />
+
+      <AnimatePresence>
+        {isLoginVisible && (
+          <LoginScreen 
+            onBack={() => setIsLoginVisible(false)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOnboardingVisible && currentUser && (
+          <OnboardingScreen 
+            user={currentUser}
+            onComplete={handleOnboardingComplete}
+          />
+        )}
+      </AnimatePresence>
+
       <Toaster position="top-center" richColors />
     </div>
   );

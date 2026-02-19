@@ -1,13 +1,9 @@
 import React from 'react';
 import { Heart, MapPin, Calendar, ArrowRight, Trash2, MessageSquare, Phone, MessageCircle } from 'lucide-react';
 import { Listing } from '../types';
+import { ContactPolicy } from '../App';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../utils/cn';
 
 interface FavoriteCardProps {
   listing: Listing;
@@ -15,9 +11,12 @@ interface FavoriteCardProps {
   onClick: () => void;
   onChat?: () => void;
   onCall?: () => void;
+  onWhatsApp?: () => void;
+  isLoggedIn?: boolean;
+  policy: ContactPolicy;
 }
 
-export function FavoriteCard({ listing, onRemove, onClick, onChat, onCall }: FavoriteCardProps) {
+export function FavoriteCard({ listing, onRemove, onClick, onChat, onCall, onWhatsApp, isLoggedIn, policy }: FavoriteCardProps) {
   const totalQty = listing.maleQty + listing.femaleQty;
   const priceDisplay = typeof listing.price === 'string' 
     ? listing.price 
@@ -87,39 +86,66 @@ export function FavoriteCard({ listing, onRemove, onClick, onChat, onCall }: Fav
 
           {/* Action Buttons - 3 Contacts + View More */}
           <div className="flex flex-col gap-3 mt-auto">
-            <div className="grid grid-cols-3 gap-2">
+            <div className={cn(
+              "grid gap-2",
+              policy.showDirectContact ? "grid-cols-3" : "grid-cols-1"
+            )}>
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
                   onChat?.();
                 }}
-                className="h-12 bg-primary text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-primary/10 transition-all active:scale-95"
+                className={cn(
+                  "h-12 bg-primary text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-primary/10 transition-all active:scale-95",
+                  !policy.showDirectContact ? "flex-row gap-3 h-14" : ""
+                )}
               >
-                <MessageSquare className="w-3.5 h-3.5" strokeWidth={3} />
-                <span className="text-[8px] font-black uppercase">Chat</span>
+                <MessageSquare className={cn("w-3.5 h-3.5", !policy.showDirectContact ? "w-5 h-5" : "")} strokeWidth={3} />
+                <span className={cn("text-[8px] font-black uppercase", !policy.showDirectContact ? "text-[12px]" : "")}>
+                  {policy.showDirectContact ? (isLoggedIn ? "Chat" : "Ver") : "Enviar Mensagem"}
+                </span>
               </button>
               
-              <a 
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="h-12 bg-green-500 text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-green-500/10 no-underline transition-all active:scale-95"
-              >
-                <MessageCircle className="w-3.5 h-3.5" strokeWidth={3} />
-                <span className="text-[8px] font-black uppercase">WhatsApp</span>
-              </a>
+              {!policy.showDirectContact && (
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-2 text-center">
+                  <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest leading-none">
+                    {policy.reason === 'OFF' ? 'Só Chat Activo' : 'Fora do Horário'}
+                  </p>
+                  <p className="text-[7px] font-bold text-orange-400 mt-1 uppercase">
+                    {policy.reason === 'OFF' ? 'Contacto oculto pelo vendedor' : `Aberto às ${policy.startTime}`}
+                  </p>
+                </div>
+              )}
+              
+              {policy.showDirectContact && (
+                <>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onWhatsApp?.();
+                    }}
+                    className="h-12 bg-green-500 text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-green-500/10 no-underline transition-all active:scale-95"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" strokeWidth={3} />
+                    <span className="text-[8px] font-black uppercase">
+                      {isLoggedIn ? "WhatsApp" : "Ver"}
+                    </span>
+                  </button>
 
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCall?.();
-                }}
-                className="h-12 bg-slate-900 text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-slate-900/10 no-underline transition-all active:scale-95"
-              >
-                <Phone className="w-3.5 h-3.5" strokeWidth={3} />
-                <span className="text-[8px] font-black uppercase">Ligar</span>
-              </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCall?.();
+                    }}
+                    className="h-12 bg-slate-900 text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-slate-900/10 no-underline transition-all active:scale-95"
+                  >
+                    <Phone className="w-3.5 h-3.5" strokeWidth={3} />
+                    <span className="text-[8px] font-black uppercase">
+                      {isLoggedIn ? "Ligar" : "Ver"}
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
 
             <button 

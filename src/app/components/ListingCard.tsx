@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import { Heart, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
 import { Listing, formatCurrency } from '../types';
+import { ContactPolicy } from '../App';
 import { motion, AnimatePresence } from 'motion/react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../utils/cn';
 
 interface ListingCardProps {
   listing: Listing;
@@ -20,9 +17,12 @@ interface ListingCardProps {
   onMouseLeave?: () => void;
   onChat?: () => void;
   onCall?: () => void;
+  onWhatsApp?: () => void;
   isHovered?: boolean;
   isSelected?: boolean;
   isViewed?: boolean;
+  isLoggedIn?: boolean;
+  policy: ContactPolicy;
 }
 
 export function ListingCard({ 
@@ -35,9 +35,12 @@ export function ListingCard({
   onMouseLeave,
   onChat,
   onCall,
+  onWhatsApp,
   isHovered,
   isSelected,
-  isViewed
+  isViewed,
+  isLoggedIn,
+  policy
 }: ListingCardProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const speciesIcon = listing.species === 'Vacas' ? '🐄' : listing.species === 'Ovelhas' ? '🐑' : '🐐';
@@ -178,41 +181,69 @@ export function ListingCard({
           </div>
 
           <div className="flex items-center gap-1 @sm:gap-2 pt-1 @sm:pt-2 border-t border-slate-50">
-            <div className="grid grid-cols-3 gap-1 @sm:gap-2 w-full">
+            <div className={cn(
+              "grid gap-1 @sm:gap-2 w-full",
+              policy.showDirectContact ? "grid-cols-3" : "grid-cols-1"
+            )}>
               <button 
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onChat?.();
                 }}
-                className="h-7 @sm:h-9 @md:h-11 bg-primary text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-primary/10 transition-all active:scale-95"
+                className={cn(
+                  "h-7 @sm:h-9 @md:h-11 bg-primary text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-primary/10 transition-all active:scale-95",
+                  !policy.showDirectContact ? "h-10 @sm:h-12 flex-row gap-2" : ""
+                )}
               >
-                <MessageSquare className="w-2.5 h-2.5 @sm:w-3 @sm:h-3" strokeWidth={3} />
-                <span className="text-[6px] @sm:text-[8px] font-black uppercase">Chat</span>
+                <MessageSquare className={cn("w-2.5 h-2.5 @sm:w-3.5 @sm:h-3.5", !policy.showDirectContact ? "w-4 h-4" : "")} strokeWidth={3} />
+                <span className={cn("text-[6px] @sm:text-[8px] font-black uppercase", !policy.showDirectContact ? "text-[10px]" : "")}>
+                  {policy.showDirectContact ? "Chat" : "Enviar Mensagem"}
+                </span>
               </button>
               
-              <a 
-                href={`https://wa.me/${listing.contacts.phone.replace(/\s/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="h-7 @sm:h-9 @md:h-11 bg-green-500 text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-green-500/10 no-underline transition-all active:scale-95"
-              >
-                <MessageCircle className="w-2.5 h-2.5 @sm:w-3 @sm:h-3" strokeWidth={3} />
-                <span className="text-[6px] @sm:text-[8px] font-black uppercase truncate px-1">WhatsApp</span>
-              </a>
+              {!policy.showDirectContact && (
+                <div className="flex flex-col items-center justify-center">
+                  <span className="text-[7px] @sm:text-[9px] font-black text-orange-500 uppercase tracking-tighter leading-none italic animate-pulse">
+                    {policy.reason === 'OFF' ? 'SÓ CHAT ACTIVO' : 'FORA DO HORÁRIO'}
+                  </span>
+                  <span className="text-[6px] font-bold text-slate-300 uppercase mt-0.5">
+                    {policy.reason === 'OFF' ? 'Contactos ocultos' : `Aberto às ${policy.startTime}`}
+                  </span>
+                </div>
+              )}
+              
+              {policy.showDirectContact && (
+                <>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onWhatsApp?.();
+                    }}
+                    className="h-7 @sm:h-9 @md:h-11 bg-green-500 text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-green-500/10 no-underline transition-all active:scale-95"
+                  >
+                    <MessageCircle className="w-2.5 h-2.5 @sm:w-3 @sm:h-3" strokeWidth={3} />
+                    <span className="text-[6px] @sm:text-[8px] font-black uppercase truncate px-1">
+                      {isLoggedIn ? "WhatsApp" : "Ver"}
+                    </span>
+                  </button>
 
-              <button 
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCall?.();
-                }}
-                className="h-7 @sm:h-9 @md:h-11 bg-slate-900 text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-slate-900/10 no-underline transition-all active:scale-95"
-              >
-                <Phone className="w-2.5 h-2.5 @sm:w-3 @sm:h-3" strokeWidth={3} />
-                <span className="text-[6px] @sm:text-[8px] font-black uppercase truncate px-1">Ligar</span>
-              </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCall?.();
+                    }}
+                    className="h-7 @sm:h-9 @md:h-11 bg-slate-900 text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-slate-900/10 no-underline transition-all active:scale-95"
+                  >
+                    <Phone className="w-2.5 h-2.5 @sm:w-3 @sm:h-3" strokeWidth={3} />
+                    <span className="text-[6px] @sm:text-[8px] font-black uppercase truncate px-1">
+                      {isLoggedIn ? "Ligar" : "Ver"}
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

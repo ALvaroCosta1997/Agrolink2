@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X, Plus, Trash2, Camera, MapPin, CheckCircle2, Info, Eye, EyeOff, Minus, Crosshair, Globe, Loader2, AlertCircle } from 'lucide-react';
-import { Species, Listing, LifeStage } from '../types';
+import { Species, Listing, LifeStage, User } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -64,6 +64,7 @@ function cn(...inputs: ClassValue[]) {
 interface PublishWizardProps {
   onCancel: () => void;
   onPublish: (listing: Listing) => void;
+  currentUser: User | null;
 }
 
 const LIFE_STAGE_OPTIONS = [
@@ -73,7 +74,7 @@ const LIFE_STAGE_OPTIONS = [
   { id: 'SLAUGHTER', label: 'Pronto para abate' }
 ] as const;
 
-export function PublishWizard({ onCancel, onPublish }: PublishWizardProps) {
+export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizardProps) {
   const [step, setStep] = useState(1);
   const totalSteps = 7;
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -98,13 +99,25 @@ export function PublishWizard({ onCancel, onPublish }: PublishWizardProps) {
     lng: -7.9135,
     showExactLocation: false,
     description: '',
-    phoneCountry: '+351',
-    phoneNumber: '',
+    phoneCountry: currentUser?.phoneCountry || '+351',
+    phoneNumber: currentUser?.phoneNumber || '',
     whatsapp: true,
-    name: '',
+    name: currentUser?.name || '',
     photos: [] as string[],
     tags: [] as string[]
   });
+
+  // Also update if user logs in while wizard is open
+  useEffect(() => {
+    if (currentUser) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || currentUser.name,
+        phoneNumber: prev.phoneNumber || currentUser.phoneNumber || '',
+        phoneCountry: prev.phoneCountry || currentUser.phoneCountry || '+351'
+      }));
+    }
+  }, [currentUser]);
 
   const fetchAddressInfo = async (lat: number, lng: number) => {
     setIsGeocoding(true);
@@ -237,7 +250,7 @@ export function PublishWizard({ onCancel, onPublish }: PublishWizardProps) {
       createdAt: new Date().toISOString(),
       tags: formData.tags,
       status: 'Ativo',
-      sellerId: 'user_current'
+      sellerId: currentUser?.id || 'pending'
     };
     onPublish(newListing);
   };

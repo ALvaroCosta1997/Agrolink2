@@ -46,11 +46,25 @@ export interface Listing {
   };
 }
 
+export type UsageMode = 'COMPRAR' | 'VENDER' | 'AMBOS';
+
 export interface User {
   id: string;
   name: string;
   isLoggedIn: boolean;
   draftMessage: string;
+  region?: string;
+  mode: UsageMode;
+  email?: string;
+  isFirstLogin?: boolean;
+  phoneNumber?: string;
+  phoneCountry?: string;
+  contactVisibility?: {
+    enabled: boolean;
+    mode: 'ALWAYS' | 'SCHEDULE';
+    startTime: string;
+    endTime: string;
+  };
 }
 
 export interface ChatMessage {

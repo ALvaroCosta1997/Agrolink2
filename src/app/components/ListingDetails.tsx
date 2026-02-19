@@ -1,14 +1,11 @@
 import React from 'react';
 import { ChevronLeft, MapPin, Phone, MessageCircle, Share2, Heart, Calendar, Info, CheckCircle2 } from 'lucide-react';
 import { Listing } from '../types';
+import { ContactPolicy } from '../App';
 import { motion } from 'motion/react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../utils/cn';
 
 interface ListingDetailsProps {
   listing: Listing;
@@ -17,9 +14,22 @@ interface ListingDetailsProps {
   isFavorite: boolean;
   onStartChat?: () => void;
   onCall?: () => void;
+  isLoggedIn: boolean;
+  onRequireAuth: (action: () => void) => void;
+  policy: ContactPolicy;
 }
 
-export function ListingDetails({ listing, onBack, onToggleFavorite, isFavorite, onStartChat, onCall }: ListingDetailsProps) {
+export function ListingDetails({ 
+  listing, 
+  onBack, 
+  onToggleFavorite, 
+  isFavorite, 
+  onStartChat, 
+  onCall,
+  isLoggedIn,
+  onRequireAuth,
+  policy
+}: ListingDetailsProps) {
   const speciesIcon = listing.species === 'Vacas' ? '🐄' : listing.species === 'Ovelhas' ? '🐑' : '🐐';
   const totalQty = listing.maleQty + listing.femaleQty;
 
@@ -56,16 +66,20 @@ export function ListingDetails({ listing, onBack, onToggleFavorite, isFavorite, 
   };
 
   const handleWhatsApp = () => {
-    const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
-    const finalPhone = cleanPhone.startsWith('351') ? cleanPhone : `351${cleanPhone}`;
-    const message = encodeURIComponent(`Olá, vi o seu anúncio de ${listing.species} (${listing.breed || ''}) no AgroLink e gostaria de mais informações.`);
-    window.open(`https://wa.me/${finalPhone}?text=${message}`, '_blank');
+    onRequireAuth(() => {
+      const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
+      const finalPhone = cleanPhone.startsWith('351') ? cleanPhone : `351${cleanPhone}`;
+      const message = encodeURIComponent(`Olá, vi o seu anúncio de ${listing.species} (${listing.breed || ''}) no AgroLink e gostaria de mais informações.`);
+      window.open(`https://wa.me/${finalPhone}?text=${message}`, '_blank');
+    });
   };
 
   const handleLocalCall = () => {
-    const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
-    const finalPhone = cleanPhone.startsWith('351') ? `+${cleanPhone}` : `+351${cleanPhone}`;
-    window.location.href = `tel:${finalPhone}`;
+    onRequireAuth(() => {
+      const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
+      const finalPhone = cleanPhone.startsWith('351') ? `+${cleanPhone}` : `+351${cleanPhone}`;
+      window.location.href = `tel:${finalPhone}`;
+    });
   };
 
   return (
@@ -227,32 +241,55 @@ export function ListingDetails({ listing, onBack, onToggleFavorite, isFavorite, 
               </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-white/40 mb-1">Vendedor</p>
-                <h4 className="text-2xl font-black">{listing.contacts.name}</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-2xl font-black">{listing.contacts.name}</h4>
+                  {!isLoggedIn && (
+                    <span className="px-2 py-0.5 bg-white/10 rounded text-[8px] font-black uppercase tracking-widest text-white/40 border border-white/5">Gado Verificado</span>
+                  )}
+                </div>
+                {isLoggedIn && (
+                  <p className="text-sm font-bold text-primary/80 mt-1">{listing.contacts.phone}</p>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button 
-                onClick={() => {
-                  onStartChat?.();
-                }}
-                className="h-16 bg-primary text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform col-span-1 sm:col-span-2 shadow-lg shadow-primary/20"
+                onClick={() => onRequireAuth(() => onStartChat?.())}
+                className={cn(
+                  "h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform shadow-lg shadow-primary/20",
+                  !policy.showDirectContact ? "bg-primary text-white col-span-2" : "bg-primary text-white col-span-1 sm:col-span-2"
+                )}
               >
-                <MessageCircle className="w-6 h-6" /> Chat AgroLink
+                <MessageCircle className="w-6 h-6" /> Enviar Mensagem
               </button>
-              <button 
-                onClick={handleLocalCall}
-                className="h-16 bg-white text-slate-900 rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform border-2 border-slate-100"
-              >
-                <Phone className="w-6 h-6" /> Ligar Agora
-              </button>
-              {listing.contacts.whatsapp && (
-                <button 
-                  onClick={handleWhatsApp}
-                  className="h-16 bg-green-500 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"
-                >
-                  <MessageCircle className="w-6 h-6" /> WhatsApp
-                </button>
+
+              {policy.showDirectContact ? (
+                <>
+                  <button 
+                    onClick={handleLocalCall}
+                    className="h-16 bg-white text-slate-900 rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform border-2 border-slate-100"
+                  >
+                    <Phone className="w-6 h-6" /> 
+                    {isLoggedIn ? "Ligar Agora" : "Ver Número"}
+                  </button>
+                  {listing.contacts.whatsapp && (
+                    <button 
+                      onClick={handleWhatsApp}
+                      className="h-16 bg-green-500 text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform"
+                    >
+                      <MessageCircle className="w-6 h-6" /> WhatsApp
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="col-span-2 p-6 bg-white/5 border-2 border-white/10 rounded-3xl text-center">
+                  <p className="text-sm font-bold text-white/60">
+                    {policy.reason === 'OFF' 
+                      ? "O vendedor prefere ser contactado por mensagem interna." 
+                      : `Fora do horário. Envia mensagem e eu respondo às ${policy.startTime}.`}
+                  </p>
+                </div>
               )}
             </div>
             

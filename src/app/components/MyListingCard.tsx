@@ -1,6 +1,7 @@
 import React from 'react';
-import { Eye, MessageSquare, Heart, Edit2, CheckCircle2, MoreVertical, TrendingUp } from 'lucide-react';
+import { Eye, MessageSquare, Heart, Edit2, CheckCircle2, MoreVertical, TrendingUp, Phone, ArrowRight } from 'lucide-react';
 import { Listing } from '../types';
+import { ContactPolicy } from '../App';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -13,9 +14,11 @@ interface MyListingCardProps {
   listing: Listing;
   onEdit?: () => void;
   onMarkAsSold?: () => void;
+  policy: ContactPolicy;
+  onNavigateToDetails?: (l: Listing) => void;
 }
 
-export function MyListingCard({ listing, onEdit, onMarkAsSold }: MyListingCardProps) {
+export function MyListingCard({ listing, onEdit, onMarkAsSold, policy, onNavigateToDetails }: MyListingCardProps) {
   const stats = listing.stats || { views: 0, contacts: 0, saves: 0 };
   const totalQty = listing.maleQty + listing.femaleQty;
   
@@ -73,18 +76,45 @@ export function MyListingCard({ listing, onEdit, onMarkAsSold }: MyListingCardPr
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col gap-3 pt-2">
+            {!policy.showDirectContact && (
+              <div className="bg-orange-50 border-2 border-orange-100 p-4 rounded-2xl flex items-center gap-3">
+                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white shrink-0">
+                  <Phone className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest leading-none">
+                    {policy.reason === 'OFF' ? 'Apenas Chat Ativo' : 'Fora do Horário'}
+                  </p>
+                  <p className="text-[9px] font-bold text-orange-400 mt-0.5">
+                    {policy.reason === 'OFF' 
+                      ? "Contactos telefónicos ocultos por sua escolha." 
+                      : `Contactos telefónicos visíveis das ${policy.startTime} às ${policy.endTime}.`}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={onEdit}
+                className="flex-1 h-12 bg-slate-100 text-slate-600 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors"
+              >
+                <Edit2 className="w-4 h-4" /> Editar
+              </button>
+              <button 
+                onClick={onMarkAsSold}
+                className="flex-1 h-12 bg-primary/10 text-primary rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all"
+              >
+                <CheckCircle2 className="w-4 h-4" /> Marcar Vendido
+              </button>
+            </div>
+
             <button 
-              onClick={onEdit}
-              className="flex-1 h-12 bg-slate-100 text-slate-600 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors"
+              onClick={() => onNavigateToDetails?.(listing)}
+              className="w-full h-10 border-2 border-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors"
             >
-              <Edit2 className="w-4 h-4" /> Editar
-            </button>
-            <button 
-              onClick={onMarkAsSold}
-              className="flex-1 h-12 bg-primary/10 text-primary rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all"
-            >
-              <CheckCircle2 className="w-4 h-4" /> Marcar Vendido
+              Ver como o comprador vê <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>

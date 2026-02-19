@@ -3,12 +3,8 @@ import { Filter, RefreshCw, X, AlertCircle, Map as MapIcon, LayoutGrid, ChevronL
 import { motion, AnimatePresence } from 'motion/react';
 import { Listing, Species } from '../types';
 import { ListingCard } from './ListingCard';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { ContactPolicy } from '../App';
+import { cn } from '../utils/cn';
 
 interface ExploreSidebarProps {
   filters: any;
@@ -27,12 +23,15 @@ interface ExploreSidebarProps {
   handleListingClick: (l: Listing) => void;
   handleStartChat: (l: Listing) => void;
   handleCall: (l: Listing) => void;
+  handleWhatsApp: (l: Listing) => void;
   hoveredListingId: string | null;
   setHoveredListingId: (id: string | null) => void;
   selectedListingId: string | null;
   viewedListings: string[];
   navigateToDetails: (l: Listing) => void;
   cardRefs: React.MutableRefObject<{[key: string]: HTMLDivElement | null}>;
+  isLoggedIn?: boolean;
+  getContactPolicy: (listing: Listing) => ContactPolicy;
 }
 
 export function ExploreSidebar({
@@ -52,12 +51,15 @@ export function ExploreSidebar({
   handleListingClick,
   handleStartChat,
   handleCall,
+  handleWhatsApp,
   hoveredListingId,
   setHoveredListingId,
   selectedListingId,
   viewedListings,
   navigateToDetails,
-  cardRefs
+  cardRefs,
+  isLoggedIn,
+  getContactPolicy
 }: ExploreSidebarProps) {
   return (
     <>
@@ -260,11 +262,14 @@ export function ExploreSidebar({
                 onClick={() => handleListingClick(listing)}
                 onChat={() => handleStartChat(listing)}
                 onCall={() => handleCall(listing)}
+                onWhatsApp={() => handleWhatsApp(listing)}
                 onMouseEnter={() => setHoveredListingId(listing.id)}
                 onMouseLeave={() => setHoveredListingId(null)}
                 isHovered={hoveredListingId === listing.id}
                 isSelected={selectedListingId === listing.id}
                 isViewed={viewedListings.includes(listing.id)}
+                isLoggedIn={isLoggedIn}
+                policy={getContactPolicy(listing)}
               />
               {selectedListingId === listing.id && (
                 <motion.div

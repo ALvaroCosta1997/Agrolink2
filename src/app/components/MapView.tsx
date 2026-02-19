@@ -5,6 +5,7 @@ import 'leaflet-draw/dist/leaflet.draw.css';
 // @ts-ignore
 import 'leaflet-draw';
 import { Listing } from '../types';
+import { ContactPolicy } from '../App';
 
 // Re-setup Leaflet icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -18,6 +19,7 @@ interface MapViewProps {
   onNavigateToDetails: (listing: Listing) => void;
   onChat: (listing: Listing) => void;
   onCall: (listing: Listing) => void;
+  onWhatsApp: (listing: Listing) => void;
   hoveredId: string | null;
   onMarkerHover: (id: string | null) => void;
   onBoundsChange: (bounds: L.LatLngBounds) => void;
@@ -27,6 +29,8 @@ interface MapViewProps {
   onPolygonCreated?: (polygon: [number, number][]) => void;
   onPolygonDeleted?: () => void;
   mobileViewMode?: "list" | "map";
+  getContactPolicy: (listing: Listing) => ContactPolicy;
+  contactVisibilityVersion?: any; // To force refresh when visibility changes
 }
 
 export function MapView({ 
@@ -35,6 +39,7 @@ export function MapView({
   onNavigateToDetails,
   onChat,
   onCall,
+  onWhatsApp,
   hoveredId, 
   onMarkerHover, 
   onBoundsChange,
@@ -43,7 +48,9 @@ export function MapView({
   onToggleFavorite,
   onPolygonCreated,
   onPolygonDeleted,
-  mobileViewMode
+  mobileViewMode,
+  getContactPolicy,
+  contactVisibilityVersion
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -176,7 +183,7 @@ export function MapView({
   const getPopupContent = (listing: Listing, isFavorite: boolean) => {
     const formattedMalePrice = listing.malePrice ? listing.malePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '-';
     const formattedFemalePrice = listing.femalePrice ? listing.femalePrice.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '-';
-    const whatsappPhone = listing.contacts.phone.replace(/\s+/g, '');
+    const policy = getContactPolicy(listing);
 
     return `
       <div class="p-4 w-64 flex flex-col gap-4">
@@ -216,22 +223,39 @@ export function MapView({
         </div>
 
         <div class="flex flex-col gap-2">
-          <div class="grid grid-cols-3 gap-2">
-            <button type="button" class="popup-chat-btn h-12 bg-primary text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-primary/10 transition-all active:scale-95">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
-              <span class="text-[8px] font-black uppercase">Chat</span>
-            </button>
-            
-            <a href="https://wa.me/${whatsappPhone}" target="_blank" class="h-12 bg-green-500 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-green-500/10 no-underline transition-all active:scale-95">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-              <span class="text-[8px] font-black uppercase">WhatsApp</span>
-            </a>
+          ${policy.showDirectContact ? `
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" class="popup-chat-btn h-12 bg-primary text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-primary/10 transition-all active:scale-95">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+                <span class="text-[8px] font-black uppercase leading-none">Chat</span>
+              </button>
+              
+              <button type="button" class="popup-whatsapp-btn h-12 bg-green-500 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-green-500/10 transition-all active:scale-95">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+                <span class="text-[8px] font-black uppercase leading-none">WhatsApp</span>
+              </button>
 
-            <button type="button" class="popup-call-btn h-12 bg-slate-900 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-slate-900/10 no-underline transition-all active:scale-95">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-              <span class="text-[8px] font-black uppercase">Ligar</span>
-            </button>
-          </div>
+              <button type="button" class="popup-call-btn h-12 bg-slate-900 text-white !text-white rounded-xl flex flex-col items-center justify-center gap-1 shadow-md shadow-slate-900/10 no-underline transition-all active:scale-95">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span class="text-[8px] font-black uppercase leading-none">Ligar</span>
+              </button>
+            </div>
+          ` : `
+            <div class="flex flex-col gap-2">
+              <button type="button" class="popup-chat-btn h-12 bg-primary text-white rounded-xl flex items-center justify-center gap-2 shadow-md shadow-primary/10 transition-all active:scale-95">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+                <span class="text-[10px] font-black uppercase">Enviar Mensagem</span>
+              </button>
+              <div class="bg-orange-50 border border-orange-100 rounded-xl p-2 text-center">
+                <p class="text-[9px] font-black text-orange-600 uppercase tracking-widest leading-none">
+                  ${policy.reason === 'OFF' ? 'SÓ CHAT ACTIVO' : 'FORA DO HORÁRIO'}
+                </p>
+                <p class="text-[8px] font-bold text-orange-400 mt-1 uppercase">
+                  ${policy.reason === 'OFF' ? 'Contacto oculto pelo vendedor' : `Contactos disponíveis das ${policy.startTime} às ${policy.endTime}`}
+                </p>
+              </div>
+            </div>
+          `}
           
           <button type="button" class="popup-details-btn w-full h-10 bg-slate-50 text-slate-400 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] border border-slate-100 transition-all hover:bg-slate-100">
             Ver detalhes completos
@@ -255,6 +279,7 @@ export function MapView({
 
       // Selection by class to be more resilient
       const chatBtn = popupElement.querySelector('.popup-chat-btn');
+      const whatsappBtn = popupElement.querySelector('.popup-whatsapp-btn');
       const callBtn = popupElement.querySelector('.popup-call-btn');
       const favBtn = popupElement.querySelector('.popup-fav-btn');
       const detailsBtn = popupElement.querySelector('.popup-details-btn');
@@ -285,6 +310,13 @@ export function MapView({
         L.DomEvent.on(chatBtn as HTMLElement, 'click', (e) => {
           L.DomEvent.stop(e);
           onChat(listing);
+        });
+      }
+
+      if (whatsappBtn) {
+        L.DomEvent.on(whatsappBtn as HTMLElement, 'click', (e) => {
+          L.DomEvent.stop(e);
+          onWhatsApp(listing);
         });
       }
 
@@ -358,15 +390,12 @@ export function MapView({
         // Update content if needed
         const currentPopup = marker.getPopup();
         if (currentPopup) {
-          const oldContent = currentPopup.getContent() as string;
-          if (oldContent !== content) {
-            marker.setPopupContent(content);
-            if (marker.isPopupOpen()) wirePopupInteractions(marker, listing.id);
-          }
+          marker.setPopupContent(content);
+          if (marker.isPopupOpen()) wirePopupInteractions(marker, listing.id);
         }
       }
     });
-  }, [listings, isMapReady, favorites]);
+  }, [listings, isMapReady, favorites, contactVisibilityVersion]);
 
   // 3. Selective Icon Update (Smooth transitions)
   useEffect(() => {

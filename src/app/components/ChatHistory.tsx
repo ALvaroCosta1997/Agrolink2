@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, MessageCircle, Phone, ArrowLeft, Send, Sparkles, Trash2, Filter, SortDesc, CheckCircle2, X, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { clsx, type ClassValue } from 'clsx';
@@ -36,13 +36,29 @@ export function ChatHistory({
 }: ChatHistoryProps) {
   const [inputText, setInputText] = useState('');
   const [showDraftSettings, setShowDraftSettings] = useState(false);
-  const [draftInput, setDraftInput] = useState(currentUser.draftMessage);
+  const [draftInput, setDraftInput] = useState(currentUser?.draftMessage || '');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [sortOrder, setSortOrder] = useState<'date' | 'unread'>('date');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   const activeChat = chats.find(c => c.id === selectedChatId);
+
+  // Effect to populate draft message when a new chat starts
+  useEffect(() => {
+    if (activeChat && activeChat.messages.length === 0 && currentUser && activeChat.buyerId === currentUser.id) {
+      const listingContext = activeChat.listingTitle;
+      const processedMessage = currentUser.draftMessage.includes("{anuncio}")
+        ? currentUser.draftMessage.replace("{anuncio}", listingContext)
+        : `Olá! Estou interessado no seu anúncio "${listingContext}". ${currentUser.draftMessage}`;
+      
+      setInputText(processedMessage);
+    } else {
+      setInputText('');
+    }
+  }, [selectedChatId, currentUser?.id, currentUser?.draftMessage, activeChat]);
+
+  const [filterType, setFilterType] = useState<'compra' | 'venda'>('compra');
 
   const filteredAndSortedChats = useMemo(() => {
     let result = [...chats];
@@ -56,7 +72,13 @@ export function ChatHistory({
       );
     }
 
-    // Filter
+    // Type Filter
+    result = result.filter(c => {
+      const type = (currentUser && c.buyerId === currentUser.id) ? 'compra' : 'venda';
+      return type === filterType;
+    });
+
+    // Filter Status
     if (filterStatus === 'unread') {
       result = result.filter(c => c.unread);
     } else if (filterStatus === 'recent') {
@@ -73,7 +95,7 @@ export function ChatHistory({
       }
       return new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime();
     });
-  }, [chats, searchQuery, filterStatus, sortOrder]);
+  }, [chats, searchQuery, filterStatus, sortOrder, filterType, currentUser?.id]);
 
   const handleSend = () => {
     if (!inputText.trim() || !selectedChatId) return;
@@ -133,7 +155,7 @@ export function ChatHistory({
 
           <div className="mt-4 flex flex-col gap-4">
             {activeChat.messages.map((msg) => {
-              const isMe = msg.senderId === currentUser.id;
+              const isMe = currentUser && msg.senderId === currentUser.id;
               return (
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -189,59 +211,87 @@ export function ChatHistory({
             <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Negócios e Contactos</p>
           </div>
 
-          {/* New Draft Message Card - Much more understandable */}
-          <div className="bg-primary/5 rounded-[40px] p-6 border-2 border-primary/10 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
-              <Sparkles className="w-16 h-16 text-primary" />
-            </div>
-            <div className="flex items-start gap-4 mb-4 relative z-10">
-              <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20 shrink-0">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-secondary leading-none uppercase pt-1">Mensagem Automática</h3>
-                <p className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">Mensagem enviada no início do chat</p>
-              </div>
-              <button 
-                onClick={() => setShowDraftSettings(!showDraftSettings)}
-                className="ml-auto px-4 py-2 bg-white rounded-xl border-2 border-primary/10 font-black text-[10px] uppercase tracking-widest text-primary shadow-sm active:scale-95 transition-all"
+          {/* Buy/Sell Toggle at Top */}
+          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
+            {[
+              { id: 'compra', label: 'Comprar' },
+              { id: 'venda', label: 'Vender' }
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setFilterType(t.id as any)}
+                className={cn(
+                  "flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all",
+                  filterType === t.id 
+                    ? "bg-white text-secondary shadow-sm" 
+                    : "text-slate-400 hover:text-slate-600"
+                )}
               >
-                {showDraftSettings ? 'Fechar' : 'Editar'}
+                {t.label}
               </button>
-            </div>
+            ))}
+          </div>
 
-            {!showDraftSettings ? (
-              <p className="text-sm font-bold text-secondary italic line-clamp-2 bg-white/50 p-4 rounded-2xl border border-white/40">
-                "{currentUser.draftMessage.replace('{anuncio}', '[Anúncio]')}"
-              </p>
-            ) : (
+          {/* Draft Message Card - Only shown when 'Comprar' is active */}
+          <AnimatePresence>
+            {filterType === 'compra' && (
               <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                className="mt-4 space-y-4"
+                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: 0 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                className="overflow-hidden"
               >
-                <div className="bg-white p-2 rounded-2xl">
-                  <textarea 
-                    value={draftInput}
-                    onChange={(e) => setDraftInput(e.target.value)}
-                    className="w-full h-32 bg-transparent p-4 font-bold text-secondary text-sm outline-none resize-none"
-                    placeholder="Ex: Olá! Vi o seu anúncio de {anuncio} e gostaria de saber mais..."
-                  />
-                </div>
-                <div className="flex flex-col gap-3">
-                  <p className="text-[10px] font-bold text-slate-400 leading-tight">
-                    Dica: Use <span className="text-primary font-black">{'{anuncio}'}</span> para que a app insira automaticamente o nome do gado que está a perguntar.
-                  </p>
-                  <button 
-                    onClick={handleSaveDraft}
-                    className="w-full h-14 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-primary/20 active:scale-95 transition-all"
-                  >
-                    <CheckCircle2 className="w-5 h-5" /> Guardar Nova Mensagem
-                  </button>
+                <div className="bg-primary/5 rounded-[40px] p-6 border-2 border-primary/10 relative group mb-2">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                    <Sparkles className="w-16 h-16 text-primary" />
+                  </div>
+                  <div className="flex items-start gap-4 mb-4 relative z-10">
+                    <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-xl shadow-primary/20 shrink-0">
+                      <Sparkles className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-secondary leading-none uppercase pt-1">Mensagem Automática</h3>
+                      <p className="text-[10px] font-bold text-primary/60 uppercase tracking-widest mt-1">Mensagem enviada no início do chat</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowDraftSettings(!showDraftSettings)}
+                      className="ml-auto px-4 py-2 bg-white rounded-xl border-2 border-primary/10 font-black text-[10px] uppercase tracking-widest text-primary shadow-sm active:scale-95 transition-all"
+                    >
+                      {showDraftSettings ? 'Fechar' : 'Editar'}
+                    </button>
+                  </div>
+
+                  {!showDraftSettings ? (
+                    <p className="text-sm font-bold text-secondary italic line-clamp-2 bg-white/50 p-4 rounded-2xl border border-white/40">
+                      "{currentUser?.draftMessage?.replace('{anuncio}', '[Anúncio]') || ''}"
+                    </p>
+                  ) : (
+                    <div className="mt-4 space-y-4">
+                      <div className="bg-white p-2 rounded-2xl">
+                        <textarea 
+                          value={draftInput}
+                          onChange={(e) => setDraftInput(e.target.value)}
+                          className="w-full h-32 bg-transparent p-4 font-bold text-secondary text-sm outline-none resize-none"
+                          placeholder="Ex: Olá! Vi o seu anúncio de {anuncio} e gostaria de saber mais..."
+                        />
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <p className="text-[10px] font-bold text-slate-400 leading-tight">
+                          Dica: Use <span className="text-primary font-black">{'{anuncio}'}</span> para que a app insira automaticamente o nome do gado que está a perguntar.
+                        </p>
+                        <button 
+                          onClick={handleSaveDraft}
+                          className="w-full h-14 bg-primary text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl shadow-primary/20 active:scale-95 transition-all"
+                        >
+                          <CheckCircle2 className="w-5 h-5" /> Guardar Nova Mensagem
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
-          </div>
+          </AnimatePresence>
 
           <div className="flex flex-col gap-4">
             <div className="relative">
@@ -321,7 +371,17 @@ export function ChatHistory({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
-                    <h3 className="text-lg font-black text-secondary truncate">{chat.userName}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-black text-secondary truncate">{chat.userName}</h3>
+                      <span className={cn(
+                        "text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border",
+                        (currentUser && chat.buyerId === currentUser.id) 
+                          ? "bg-blue-50 text-blue-500 border-blue-100" 
+                          : "bg-green-50 text-green-500 border-green-100"
+                      )}>
+                        {(currentUser && chat.buyerId === currentUser.id) ? 'Comprar' : 'Vender'}
+                      </span>
+                    </div>
                     <span className="text-[10px] font-black text-slate-400 uppercase bg-slate-100 px-2 py-1 rounded-lg shrink-0">
                       {new Date(chat.lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
