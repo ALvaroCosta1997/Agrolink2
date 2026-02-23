@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useMemo,
   useRef,
+  useCallback,
 } from "react";
 import { Toaster, toast } from "sonner";
 import {
@@ -43,9 +44,10 @@ import { Chat, ChatMessage, User as UserType, UsageMode } from "./types";
 import { AuthGate } from "./components/AuthGate";
 import { LoginScreen } from "./components/LoginScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
-import { Lock, LogIn } from "lucide-react";
+import { Lock, LogIn, Loader2 } from "lucide-react";
 
 import { cn } from "./utils/cn";
+import * as api from "./api";
 
 type View =
   | "explorar"
@@ -245,11 +247,12 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Loading state
+  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
   // New States for Auth
-  const [currentUser, setCurrentUser] = useState<UserType | null>(() => {
-    const saved = localStorage.getItem("agrolink_user");
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
 
   const currentUserRef = useRef<UserType | null>(currentUser);
   useEffect(() => {
@@ -269,51 +272,89 @@ export default function App() {
     }
   };
 
-  const handleLoginSuccess = (email: string) => {
-    const isFirstLogin = !localStorage.getItem("agrolink_user_exists");
-    const newUser: UserType = {
-      id: `user_${Date.now()}`,
-      name: email.split('@')[0],
-      email: email,
-      isLoggedIn: true,
-      draftMessage: "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
-      mode: 'AMBOS',
-      region: 'Alentejo, Portugal',
-      isFirstLogin: isFirstLogin,
-      phoneNumber: "912345678", // Default for testing, user can change
-      phoneCountry: "+351",
-      contactVisibility: {
-        enabled: true,
-        mode: 'ALWAYS',
-        startTime: '09:00',
-        endTime: '19:00'
-      }
-    };
-    
-    setCurrentUser(newUser);
-    localStorage.setItem("agrolink_user", JSON.stringify(newUser));
-    localStorage.setItem("agrolink_user_exists", "true");
+  const handleLoginSuccess = async (email: string, userId: string, token: string) => {
+    setAccessToken(token);
     setIsLoginVisible(false);
 
-    if (isFirstLogin) {
-      setIsOnboardingVisible(true);
-    } else {
-      if (pendingAction) {
-        setTimeout(() => {
-          pendingAction();
-          setPendingAction(null);
-        }, 300);
+    try {
+      // Fetch profile from backend
+      const profileData = await api.profile.get();
+      
+      const userProfile: UserType = {
+        id: userId,
+        name: profileData?.name || email.split('@')[0],
+        email: email,
+        isLoggedIn: true,
+        draftMessage: profileData?.draftMessage || "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+        mode: profileData?.mode || 'AMBOS',
+        region: profileData?.region || '',
+        isFirstLogin: profileData?.isFirstLogin ?? true,
+        phoneNumber: profileData?.phoneNumber || '',
+        phoneCountry: profileData?.phoneCountry || '+351',
+        contactVisibility: profileData?.contactVisibility || {
+          enabled: true,
+          mode: 'ALWAYS',
+          startTime: '09:00',
+          endTime: '19:00'
+        }
+      };
+
+      setCurrentUser(userProfile);
+
+      // Load user-specific data from backend
+      try {
+        const [userFavs, userChats] = await Promise.all([
+          api.favorites.get(),
+          api.chats.getAll(),
+        ]);
+        setFavorites(userFavs);
+        setChats(userChats);
+      } catch (e) {
+        console.log("Non-critical: failed to load user data", e);
       }
-      toast.success("Bem-vindo de volta ao AgroLink!");
+
+      if (userProfile.isFirstLogin) {
+        setIsOnboardingVisible(true);
+      } else {
+        if (pendingAction) {
+          setTimeout(() => {
+            pendingAction();
+            setPendingAction(null);
+          }, 300);
+        }
+        toast.success("Bem-vindo de volta ao AgroLink!");
+      }
+    } catch (err) {
+      console.error("Error loading profile after login:", err);
+      // Fallback: create minimal user
+      setCurrentUser({
+        id: userId,
+        name: email.split('@')[0],
+        email,
+        isLoggedIn: true,
+        draftMessage: "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+        mode: 'AMBOS',
+        isFirstLogin: true,
+      });
+      setIsOnboardingVisible(true);
     }
   };
 
-  const handleOnboardingComplete = (updatedUser: UserType) => {
+  const handleOnboardingComplete = async (updatedUser: UserType) => {
     setCurrentUser(updatedUser);
-    localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
     setIsOnboardingVisible(false);
     toast.success("Perfil configurado com sucesso!");
     
+    // Persist profile to backend
+    try {
+      await api.profile.update({
+        ...updatedUser,
+        isFirstLogin: false,
+      });
+    } catch (err) {
+      console.error("Error saving profile after onboarding:", err);
+    }
+
     if (pendingAction) {
       setTimeout(() => {
         pendingAction();
@@ -322,9 +363,16 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout();
+    } catch (e) {
+      console.log("Logout error (non-critical):", e);
+    }
     setCurrentUser(null);
-    localStorage.removeItem("agrolink_user");
+    setAccessToken(null);
+    setFavorites([]);
+    setChats([]);
     setCurrentView("explorar");
     toast.info("Sessão terminada");
   };
@@ -347,23 +395,10 @@ export default function App() {
     [key: string]: HTMLDivElement | null;
   }>({});
 
-  useEffect(() => {
-    // Load chats from localStorage
-    const savedChats = localStorage.getItem("agrolink_chats");
-    if (savedChats) {
-      setChats(JSON.parse(savedChats));
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(
-      "agrolink_chats",
-      JSON.stringify(chats),
-    );
-  }, [chats]);
+  // Chats are loaded from backend during init and after login — no localStorage needed
 
   const handleStartChat = (listing: Listing) => {
-    requireAuth(() => {
+    requireAuth(async () => {
       if (!currentUser) return;
 
       let existingChat = chats.find(
@@ -378,13 +413,6 @@ export default function App() {
         setSelectedChatId(existingChat.id);
       } else {
         const listingContext = `${listing.species} — ${listing.breed || "Lote"}`;
-        const processedMessage =
-          currentUser.draftMessage.includes("{anuncio}")
-            ? currentUser.draftMessage.replace(
-                "{anuncio}",
-                listingContext,
-              )
-            : `Olá! Estou interessado no seu anúncio "${listingContext}". ${currentUser.draftMessage}`;
 
         const newChat: Chat = {
           id: `chat_${Date.now()}`,
@@ -400,19 +428,27 @@ export default function App() {
         };
         setChats((prev) => [newChat, ...prev]);
         setSelectedChatId(newChat.id);
-        
-        // Pass the draft message to ChatHistory state via some mechanism
-        // Since we don't have a direct prop for the active draft in ChatHistory, 
-        // let's add it to the ChatHistory component logic in the next step
+
+        // Persist chat to backend
+        try {
+          await api.chats.create(newChat);
+        } catch (e) {
+          console.error("Failed to persist chat:", e);
+        }
       }
       setCurrentView("mensagens");
     });
   };
 
-  const handleDeleteChat = (chatId: string) => {
+  const handleDeleteChat = async (chatId: string) => {
     setChats((prev) => prev.filter((c) => c.id !== chatId));
     if (selectedChatId === chatId) setSelectedChatId(null);
     toast.success("Conversa eliminada");
+    try {
+      await api.chats.remove(chatId);
+    } catch (e) {
+      console.error("Failed to delete chat from backend:", e);
+    }
   };
 
   const handleCall = (listing: Listing) => {
@@ -434,8 +470,9 @@ export default function App() {
     });
   };
 
-  const handleSendMessage = (chatId: string, text: string) => {
+  const handleSendMessage = async (chatId: string, text: string) => {
     if (!currentUser) return;
+    // Optimistic update
     setChats((prev) =>
       prev.map((c) => {
         if (c.id === chatId) {
@@ -459,76 +496,70 @@ export default function App() {
         return c;
       }),
     );
+    // Persist to backend
+    try {
+      await api.chats.sendMessage(chatId, text);
+    } catch (e) {
+      console.error("Failed to send message to backend:", e);
+    }
   };
 
+  // ── App initialization: restore session + fetch listings from backend ──
   useEffect(() => {
-    const savedListingsRaw = localStorage.getItem(
-      "agrolink_listings",
-    );
-    let finalListings: Listing[] = [];
-
-    if (savedListingsRaw) {
-      const parsed = JSON.parse(savedListingsRaw);
-      // Migration Logic
-      finalListings = parsed.map((l: any) => {
-        let updatedListing = { ...l };
-
-        // Old Sex/Qty migration
-        if ("sex" in l && "quantity" in l) {
-          const { sex, quantity, ...rest } = l;
-          let maleQty = 0;
-          let femaleQty = 0;
-          if (sex === "Macho") maleQty = quantity;
-          else if (sex === "Fêmea") femaleQty = quantity;
-          else if (sex === "Misto") {
-            maleQty = 1;
-            femaleQty = Math.max(quantity - 1, 0);
-          }
-          updatedListing = { ...rest, maleQty, femaleQty };
-        }
-
-        // LifeStage migration
-        if (!updatedListing.lifeStage) {
-          const desc = (
-            updatedListing.description || ""
-          ).toLowerCase();
-          if (
-            desc.includes("abate") ||
-            desc.includes("matadouro") ||
-            desc.includes("engorda final")
-          ) {
-            updatedListing.lifeStage = "SLAUGHTER";
-          } else if (
-            desc.includes("vitelo") ||
-            desc.includes("borrego") ||
-            desc.includes("cabrito") ||
-            desc.includes("recém-nascido")
-          ) {
-            updatedListing.lifeStage = "NEWBORN";
-          } else if (updatedListing.ageGroup === "Jovem") {
-            updatedListing.lifeStage = "YOUNG";
-          } else {
-            updatedListing.lifeStage = "ADULT";
+    const init = async () => {
+      setIsAppLoading(true);
+      try {
+        // 1. Check for existing session
+        const session = await api.auth.getSession();
+        if (session) {
+          setAccessToken(session.access_token);
+          try {
+            const profileData = await api.profile.get();
+            if (profileData) {
+              setCurrentUser({
+                ...profileData,
+                isLoggedIn: true,
+                id: session.user.id,
+                email: session.user.email,
+              } as UserType);
+            }
+            // Load user data
+            const [userFavs, userChats] = await Promise.all([
+              api.favorites.get(),
+              api.chats.getAll(),
+            ]);
+            setFavorites(userFavs);
+            setChats(userChats);
+          } catch (e) {
+            console.log("Non-critical: failed to load user data on init", e);
           }
         }
 
-        return updatedListing;
-      });
-      setListings(finalListings);
-    } else {
-      setListings(INITIAL_LISTINGS);
-      localStorage.setItem(
-        "agrolink_listings",
-        JSON.stringify(INITIAL_LISTINGS),
-      );
-    }
+        // 2. Fetch listings from backend
+        let serverListings = await api.listings.getAll();
 
-    const savedFavs = localStorage.getItem(
-      "agrolink_favorites",
-    );
-    if (savedFavs) {
-      setFavorites(JSON.parse(savedFavs));
-    }
+        if (serverListings.length === 0) {
+          // Seed initial demo data
+          console.log("No listings found, seeding demo data...");
+          try {
+            await api.seed.run(INITIAL_LISTINGS);
+            serverListings = INITIAL_LISTINGS;
+          } catch (e) {
+            console.log("Seed failed or already done, using local data:", e);
+            serverListings = INITIAL_LISTINGS;
+          }
+        }
+
+        setListings(serverListings);
+      } catch (err) {
+        console.error("Init error, falling back to local data:", err);
+        setListings(INITIAL_LISTINGS);
+      } finally {
+        setIsAppLoading(false);
+      }
+    };
+
+    init();
   }, []);
 
   const filteredListings = useMemo(() => {
@@ -638,9 +669,9 @@ export default function App() {
         const next = prev.includes(id)
           ? prev.filter((fid) => fid !== id)
           : [...prev, id];
-        localStorage.setItem(
-          "agrolink_favorites",
-          JSON.stringify(next),
+        // Persist to backend
+        api.favorites.save(next).catch((e) =>
+          console.error("Failed to save favorites:", e)
         );
         if (!prev.includes(id))
           toast.success("Guardado nos favoritos");
@@ -651,23 +682,25 @@ export default function App() {
   };
 
   const handlePublish = (newListing: Listing) => {
-    requireAuth(() => {
-      // Ensure the listing is linked to the actual user who is now logged in
+    requireAuth(async () => {
       const user = currentUserRef.current;
       const finalListing = {
         ...newListing,
         sellerId: user?.id || newListing.sellerId
       };
       
-      const updated = [finalListing, ...listings];
-      setListings(updated);
-      localStorage.setItem(
-        "agrolink_listings",
-        JSON.stringify(updated),
-      );
-      
+      // Optimistic update
+      setListings((prev) => [finalListing, ...prev]);
       setCurrentView("meus-anuncios");
       toast.success("Anúncio publicado com sucesso!");
+
+      // Persist to backend
+      try {
+        await api.listings.create(finalListing);
+      } catch (e) {
+        console.error("Failed to persist listing:", e);
+        toast.error("Erro ao guardar anúncio no servidor. O anúncio está visível localmente.");
+      }
     });
   };
 
@@ -989,12 +1022,13 @@ export default function App() {
 
         const updateVisibility = (updates: Partial<typeof visibility>) => {
           if (!currentUser) return;
+          const newVisibility = { ...visibility, ...updates };
           const updatedUser = {
             ...currentUser,
-            contactVisibility: { ...visibility, ...updates }
+            contactVisibility: newVisibility
           };
           setCurrentUser(updatedUser);
-          localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+          api.profile.update({ contactVisibility: newVisibility }).catch(console.error);
           toast.success("Guardado. Aplicado a todos os anúncios.");
         };
 
@@ -1257,12 +1291,13 @@ export default function App() {
             onSendMessage={handleSendMessage}
             onDeleteChat={handleDeleteChat}
             currentUser={currentUser}
-            onUpdateDraft={(text) =>
-              setCurrentUser((prev) => ({
+            onUpdateDraft={(text) => {
+              setCurrentUser((prev) => prev ? ({
                 ...prev,
                 draftMessage: text,
-              }))
-            }
+              }) : prev);
+              api.profile.update({ draftMessage: text }).catch(console.error);
+            }}
             onViewDetails={(listingId) => {
               const listing = listings.find(
                 (l) => l.id === listingId,
@@ -1362,7 +1397,9 @@ export default function App() {
                       onChange={(e) => {
                         const updatedUser = { ...currentUser, name: e.target.value };
                         setCurrentUser(updatedUser);
-                        localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+                      }}
+                      onBlur={() => {
+                        api.profile.update({ name: currentUser.name }).catch(console.error);
                       }}
                       className="text-3xl font-black text-secondary truncate w-full bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg px-2 -ml-2"
                     />
@@ -1376,7 +1413,9 @@ export default function App() {
                           onChange={(e) => {
                             const updatedUser = { ...currentUser, phoneNumber: e.target.value };
                             setCurrentUser(updatedUser);
-                            localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+                          }}
+                          onBlur={() => {
+                            api.profile.update({ phoneNumber: currentUser.phoneNumber }).catch(console.error);
                           }}
                           className="text-lg font-bold text-primary bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg px-1 w-full"
                         />
@@ -1386,9 +1425,10 @@ export default function App() {
                         <select
                           value={currentUser.region?.split(',')[0] || ''}
                           onChange={(e) => {
-                            const updatedUser = { ...currentUser, region: `${e.target.value}, Portugal` };
+                            const region = `${e.target.value}, Portugal`;
+                            const updatedUser = { ...currentUser, region };
                             setCurrentUser(updatedUser);
-                            localStorage.setItem("agrolink_user", JSON.stringify(updatedUser));
+                            api.profile.update({ region }).catch(console.error);
                           }}
                           className="text-sm font-bold text-slate-500 bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg px-1 uppercase tracking-widest"
                         >
@@ -1587,6 +1627,23 @@ export default function App() {
         return null;
     }
   };
+
+  // Loading screen
+  if (isAppLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6">
+        <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center shadow-xl shadow-primary/20">
+          <span className="text-white font-black text-4xl italic">A</span>
+        </div>
+        <div className="text-center">
+          <h1 className="text-3xl font-black text-secondary">AgroLink</h1>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">A ligar produtores</p>
+        </div>
+        <Loader2 className="w-8 h-8 text-primary animate-spin mt-4" />
+        <Toaster position="top-center" richColors />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-['Inter',_sans-serif]">
