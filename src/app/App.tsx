@@ -1266,11 +1266,19 @@ export default function App() {
                   <MyListingCard
                     key={l.id}
                     listing={l}
-                    onMarkAsSold={() =>
-                      toast.success(
-                        "Anúncio marcado como vendido!",
-                      )
-                    }
+                    onMarkAsSold={async () => {
+                      setListings((prev) =>
+                        prev.map((li) =>
+                          li.id === l.id ? { ...li, status: "Vendido" } : li
+                        )
+                      );
+                      toast.success("Anúncio marcado como vendido!");
+                      try {
+                        await api.listings.update(l.id, { status: "Vendido" });
+                      } catch (e) {
+                        console.error("Failed to update listing status:", e);
+                      }
+                    }}
                     policy={getContactPolicy(l, currentUser)}
                     onNavigateToDetails={(listing) => {
                       setSelectedListing(listing);
@@ -1379,16 +1387,8 @@ export default function App() {
                 </div>
               ) : (
                 <div className="flex items-center gap-6">
-                  <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-xl shrink-0">
-                    {currentUser.email ? (
-                      <img 
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`} 
-                        alt="Avatar" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-10 h-10 text-primary" />
-                    )}
+                  <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-xl shrink-0">
+                    <User className="w-9 h-9 text-slate-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <input

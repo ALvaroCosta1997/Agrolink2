@@ -116,7 +116,7 @@ export function ChatHistory({
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div className="flex-1 flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center font-black text-primary text-sm uppercase">
+            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-500 text-sm uppercase">
               {activeChat.userName[0]}
             </div>
             <div>
@@ -363,7 +363,7 @@ export function ChatHistory({
                 )}
               >
                 <div className="relative shrink-0">
-                  <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center overflow-hidden border-2 border-slate-100 shadow-sm font-black text-xl text-primary shrink-0 uppercase">
+                  <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-slate-200/60 shadow-sm font-bold text-xl text-slate-500 shrink-0 uppercase">
                     {chat.userName[0]}
                   </div>
                   {chat.unread && <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary border-4 border-white rounded-full" />}
