@@ -429,11 +429,24 @@ export default function App() {
         setChats((prev) => [newChat, ...prev]);
         setSelectedChatId(newChat.id);
 
-        // Persist chat to backend
+        // Persist chat to backend and replace temporary local id with DB id
         try {
-          await api.chats.create(newChat);
+          const savedChat = await api.chats.create(newChat);
+          setChats((prev) =>
+            prev.map((chat) =>
+              chat.id === newChat.id
+                ? {
+                    ...chat,
+                    ...savedChat,
+                    messages: savedChat.messages || chat.messages,
+                  }
+                : chat,
+            ),
+          );
+          setSelectedChatId(savedChat.id);
         } catch (e) {
           console.error("Failed to persist chat:", e);
+          toast.error("Não foi possível iniciar a conversa.");
         }
       }
       setCurrentView("mensagens");
