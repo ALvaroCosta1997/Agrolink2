@@ -395,12 +395,20 @@ export default function App() {
     [key: string]: HTMLDivElement | null;
   }>({});
 
+  const isUuid = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
   // Chats are loaded from backend during init and after login — no localStorage needed
 
   const handleStartChat = (listing: Listing) => {
     requireAuth(async () => {
       if (!currentUser) return;
-
+      
+      if (!isUuid(listing.sellerId)) {
+        toast.error("Este anúncio é apenas de demonstração e não suporta chat.");
+        return;
+      }
+      
       let existingChat = chats.find(
         (c) =>
           c.listingId === listing.id ||
@@ -552,14 +560,15 @@ export default function App() {
         let serverListings = await api.listings.getAll();
 
         if (serverListings.length === 0) {
-          // Seed initial demo data
-          console.log("No listings found, seeding demo data...");
+          // In relational mode, try seed endpoint once then re-fetch real DB listings.
+          // Avoid falling back to local demo listings because they contain non-UUID ids
+          // that break chat and favorites persistence against Postgres.
+          console.log("No listings found, trying server seed...");
           try {
             await api.seed.run(INITIAL_LISTINGS);
-            serverListings = INITIAL_LISTINGS;
+            serverListings = await api.listings.getAll();
           } catch (e) {
-            console.log("Seed failed or already done, using local data:", e);
-            serverListings = INITIAL_LISTINGS;
+            console.log("Seed failed, keeping DB listings only:", e);
           }
         }
 
