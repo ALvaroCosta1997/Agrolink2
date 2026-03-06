@@ -1876,3 +1876,62 @@ export default function App() {
     </div>
   );
 }
+// ── App initialization: restore session + fetch listings from backend ──
+useEffect(() => {
+  const init = async () => {
+    setIsAppLoading(true);
+    try {
+      // 1. Check for existing session
+      const session = await api.auth.getSession();
+      if (session) {
+        setAccessToken(session.access_token);
+        try {
+          const profileData = await api.profile.get();
+          if (profileData) {
+            setCurrentUser({
+              ...profileData,
+              isLoggedIn: true,
+              id: session.user.id,
+              email: session.user.email,
+            } as UserType);
+          }
+          // Load user data
+          const [userFavs, userChats] = await Promise.all([
+            api.favorites.get(),
+            api.chats.getAll(),
+          ]);
+          setFavorites(userFavs);
+          setChats(userChats);
+        } catch (e) {
+          console.log("Non-critical: failed to load user data on init", e);
+        }
+      }
+
+      // 2. Fetch listings from backend
+      let serverListings = await api.listings.getAll();
+
+      if (serverListings.length === 0) {
+        // In relational mode, try seed endpoint once then re-fetch real DB listings.
+        // Avoid falling back to local demo listings because they contain non-UUID ids
+        // that break chat and favorites persistence against Postgres.
+        console.log("No listings found, trying server seed...");
+        try {
+          await api.seed.run(INITIAL_LISTINGS);
+          serverListings = await api.listings.getAll();
+        } catch (e) {
+          console.log("Seed failed, keeping DB listings only:", e);
+        }
+      }
+
+      setListings(serverListings);
+    } catch (err) {
+      console.error("Init error, falling back to local data:", err);
+      setListings(INITIAL_LISTINGS);
+    } finally {
+      setIsAppLoading(false);
+    }
+  };
+
+  init();
+}, []);
+
