@@ -45,6 +45,7 @@ import { AuthGate } from "./components/AuthGate";
 import { LoginScreen } from "./components/LoginScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { Lock, LogIn, Loader2 } from "lucide-react";
+import { Analytics } from "@vercel/analytics/react";
 
 import { cn } from "./utils/cn";
 import * as api from "./api";
@@ -1873,6 +1874,7 @@ export default function App() {
       </AnimatePresence>
 
       <Toaster position="top-center" richColors />
+      <Analytics />
     </div>
   );
 }
