@@ -4,6 +4,12 @@ import { User, MapPin, Phone, ArrowRight, CheckCircle2, ChevronRight, Map, Build
 import { User as UserType } from '../types';
 import { cn } from '../utils/cn';
 
+const PHONE_COUNTRIES = [
+  { code: '+351', flag: '🇵🇹' },
+  { code: '+34',  flag: '🇪🇸' },
+  { code: '+33',  flag: '🇫🇷' },
+];
+
 interface OnboardingScreenProps {
   user: UserType;
   onComplete: (updatedUser: UserType) => void;
@@ -17,6 +23,7 @@ export function OnboardingScreen({ user, onComplete }: OnboardingScreenProps) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState(user.name || '');
   const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber || '');
+  const [phoneCountry, setPhoneCountry] = useState(user.phoneCountry || '+351');
   const [district, setDistrict] = useState('');
   const [mode, setMode] = useState<'COMPRAR' | 'VENDER' | 'AMBOS'>(user.mode || 'AMBOS');
 
@@ -28,6 +35,7 @@ export function OnboardingScreen({ user, onComplete }: OnboardingScreenProps) {
         ...user,
         name,
         phoneNumber,
+        phoneCountry,
         region: district ? `${district}, Portugal` : user.region,
         mode,
         isFirstLogin: false
@@ -77,14 +85,22 @@ export function OnboardingScreen({ user, onComplete }: OnboardingScreenProps) {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">Telemóvel</label>
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-black">+351</span>
+                  <div className="flex gap-2">
+                    <select
+                      value={phoneCountry}
+                      onChange={(e) => setPhoneCountry(e.target.value)}
+                      className="h-16 bg-slate-50 border-2 border-slate-100 rounded-[20px] font-black text-sm text-slate-600 text-center outline-none focus:border-primary px-3 shrink-0"
+                    >
+                      {PHONE_COUNTRIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                      ))}
+                    </select>
                     <input
                       type="tel"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       placeholder="912 345 678"
-                      className="w-full h-18 bg-slate-50 border-2 border-slate-100 rounded-[24px] pl-20 pr-6 text-xl font-black text-secondary focus:border-primary outline-none transition-all"
+                      className="flex-1 h-16 bg-slate-50 border-2 border-slate-100 rounded-[24px] px-6 text-xl font-black text-secondary focus:border-primary outline-none transition-all"
                     />
                   </div>
                 </div>

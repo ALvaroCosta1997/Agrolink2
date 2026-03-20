@@ -394,6 +394,9 @@ export default function App() {
   const cardRefs = useRef<{
     [key: string]: HTMLDivElement | null;
   }>({});
+  // Stores the latest map bounds without triggering a re-render on every pan/zoom.
+  // currentBounds (state) is only updated when the user clicks "Pesquisar nesta zona".
+  const latestBoundsRef = useRef<L.LatLngBounds | null>(null);
 
   const isUuid = (value: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -593,6 +596,26 @@ export default function App() {
           }
         }
 
+        // 3. Merge photos from listing_photos table (photos column doesn't exist on listings table)
+        try {
+          const { data: photosData } = await api.supabase
+            .from("listing_photos")
+            .select("listing_id, url");
+          if (photosData && photosData.length > 0) {
+            const photosByListing: Record<string, string[]> = {};
+            photosData.forEach(({ listing_id, url }: { listing_id: string; url: string }) => {
+              if (!photosByListing[listing_id]) photosByListing[listing_id] = [];
+              photosByListing[listing_id].push(url);
+            });
+            serverListings = serverListings.map((l) => ({
+              ...l,
+              photos: photosByListing[l.id]?.length > 0 ? photosByListing[l.id] : l.photos,
+            }));
+          }
+        } catch (e) {
+          console.log("Non-critical: failed to fetch listing photos", e);
+        }
+
         setListings(serverListings);
       } catch (err) {
         console.error("Init error, falling back to local data:", err);
@@ -739,7 +762,21 @@ export default function App() {
 
       // Persist to backend
       try {
-        await api.listings.create(finalListing);
+        const savedListing = await api.listings.create(finalListing);
+        // Replace the optimistic (local-id) listing with the DB version
+        setListings((prev) =>
+          prev.map((l) =>
+            l.id === finalListing.id
+              ? { ...savedListing, photos: finalListing.photos }
+              : l
+          )
+        );
+        // Persist photo URLs into listing_photos table
+        if (finalListing.photos.length > 0) {
+          await api.supabase.from("listing_photos").insert(
+            finalListing.photos.map((url) => ({ listing_id: savedListing.id, url }))
+          );
+        }
       } catch (e) {
         console.error("Failed to persist listing:", e);
         toast.error("Erro ao guardar anúncio no servidor. O anúncio está visível localmente.");
@@ -900,7 +937,7 @@ export default function App() {
                 hoveredId={hoveredListingId}
                 onMarkerHover={setHoveredListingId}
                 onBoundsChange={(bounds) => {
-                  setCurrentBounds(bounds);
+                  latestBoundsRef.current = bounds;
                   setShowSearchHere(true);
                 }}
                 selectedId={selectedListingId}
@@ -920,6 +957,9 @@ export default function App() {
                 <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1000]">
                   <button
                     onClick={() => {
+                      if (latestBoundsRef.current) {
+                        setCurrentBounds(latestBoundsRef.current);
+                      }
                       setShowSearchHere(false);
                       toast.success(
                         "Lista atualizada para esta zona",
@@ -1449,7 +1489,19 @@ export default function App() {
                     />
                     <div className="flex flex-col gap-1 mt-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">PT</span>
+                        <select
+                          value={currentUser.phoneCountry || '+351'}
+                          onChange={(e) => {
+                            const updatedUser = { ...currentUser, phoneCountry: e.target.value };
+                            setCurrentUser(updatedUser);
+                            api.profile.update({ phoneCountry: e.target.value }).catch(console.error);
+                          }}
+                          className="text-sm font-bold text-slate-400 bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg"
+                        >
+                          <option value="+351">🇵🇹 +351</option>
+                          <option value="+34">🇪🇸 +34</option>
+                          <option value="+33">🇫🇷 +33</option>
+                        </select>
                         <input
                           type="text"
                           value={currentUser.phoneNumber || ''}

@@ -68,6 +68,12 @@ interface PublishWizardProps {
   currentUser: User | null;
 }
 
+const PHONE_COUNTRIES = [
+  { code: '+351', flag: '🇵🇹' },
+  { code: '+34',  flag: '🇪🇸' },
+  { code: '+33',  flag: '🇫🇷' },
+];
+
 const LIFE_STAGE_OPTIONS = [
   { id: 'NEWBORN', label: 'Recém-nascido', speciesLabels: { Vacas: 'Vitelo', Ovelhas: 'Borrego', Cabras: 'Cabrito' } },
   { id: 'YOUNG', label: 'Jovem' },
@@ -156,10 +162,18 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
   };
 
   const validatePhone = (country: string, number: string) => {
-    const cleanNum = number.replace(/\s+/g, '');
+    const cleanNum = number.replace(/\s+/g, '').replace(/^0/, '');
     if (country === '+351') {
-      // Portugal rules: 9 digits, starts with 9, 2 or 3
+      // Portugal: 9 digits, starts with 2, 3 or 9
       return cleanNum.length === 9 && /^[239]/.test(cleanNum);
+    }
+    if (country === '+34') {
+      // Spain: 9 digits, starts with 6, 7, 8 or 9
+      return cleanNum.length === 9 && /^[6789]/.test(cleanNum);
+    }
+    if (country === '+33') {
+      // France: 9 digits (after stripping leading 0), starts with 1-9
+      return cleanNum.length === 9 && /^[1-9]/.test(cleanNum);
     }
     // Generic: at least 7 digits
     return cleanNum.length >= 7;
@@ -642,15 +656,15 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
             <div className="flex flex-col gap-3">
               <label className="text-sm font-black uppercase tracking-widest text-slate-400">Telefone de Contacto</label>
               <div className="flex gap-2">
-                <div className="relative w-28 h-16">
-                  <input 
-                    type="text" 
-                    value={formData.phoneCountry}
-                    onChange={(e) => setFormData({...formData, phoneCountry: e.target.value})}
-                    className="w-full h-full bg-slate-100 border-2 border-slate-100 rounded-2xl flex items-center justify-center font-black text-lg text-slate-600 text-center outline-none focus:border-primary"
-                  />
-                  <Globe className="absolute top-1 right-2 w-3 h-3 text-slate-400" />
-                </div>
+                <select
+                  value={formData.phoneCountry}
+                  onChange={(e) => setFormData({...formData, phoneCountry: e.target.value})}
+                  className="w-28 h-16 bg-slate-100 border-2 border-slate-100 rounded-2xl font-black text-sm text-slate-600 text-center outline-none focus:border-primary px-2"
+                >
+                  {PHONE_COUNTRIES.map(c => (
+                    <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                  ))}
+                </select>
                 <input 
                   type="tel" 
                   placeholder="912 345 678"
