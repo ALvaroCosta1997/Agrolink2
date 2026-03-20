@@ -8,6 +8,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion } from 'motion/react';
+import { supabase } from '../api';
 
 // Mapping of Portuguese Municipalities to Districts
 const MUNICIPALITY_TO_DISTRICT: Record<string, string> = {
@@ -78,7 +79,9 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
   const [step, setStep] = useState(1);
   const totalSteps = 7;
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     species: 'Vacas' as Species,
@@ -260,6 +263,42 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
       navigator.geolocation.getCurrentPosition((position) => {
         handleLocationSelect(position.coords.latitude, position.coords.longitude);
       });
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setIsUploading(true);
+    const uploadedUrls: string[] = [];
+    for (const file of files) {
+      const path = `${currentUser?.id || 'anon'}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('listing-photos')
+        .upload(path, file);
+      if (!uploadError) {
+        const { data } = supabase.storage.from('listing-photos').getPublicUrl(path);
+        uploadedUrls.push(data.publicUrl);
+      } else {
+        console.error('Erro ao carregar foto:', uploadError.message);
+      }
+    }
+    setFormData(prev => ({ ...prev, photos: [...prev.photos, ...uploadedUrls] }));
+    setIsUploading(false);
+    e.target.value = '';
+  };
+
+  const handleRemovePhoto = async (url: string) => {
+    setFormData(prev => ({ ...prev, photos: prev.photos.filter(p => p !== url) }));
+    try {
+      const marker = '/listing-photos/';
+      const idx = url.indexOf(marker);
+      if (idx !== -1) {
+        const path = decodeURIComponent(url.slice(idx + marker.length));
+        await supabase.storage.from('listing-photos').remove([path]);
+      }
+    } catch (e) {
+      console.error('Erro ao eliminar foto do armazenamento:', e);
     }
   };
 
@@ -550,15 +589,38 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
             
             <div className="flex flex-col gap-3">
               <label className="text-sm font-black uppercase tracking-widest text-slate-400">Fotos do Lote</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
               <div className="grid grid-cols-2 gap-4">
-                <button className="aspect-square bg-slate-50 border-4 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/50 transition-colors">
-                  <Camera className="w-10 h-10" />
-                  <span className="font-black text-xs uppercase">Adicionar</span>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="aspect-square bg-slate-50 border-4 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/50 transition-colors disabled:opacity-50"
+                >
+                  {isUploading ? (
+                    <Loader2 className="w-10 h-10 animate-spin" />
+                  ) : (
+                    <Camera className="w-10 h-10" />
+                  )}
+                  <span className="font-black text-xs uppercase">
+                    {isUploading ? 'A carregar...' : 'Adicionar'}
+                  </span>
                 </button>
                 {formData.photos.map((p, i) => (
                   <div key={i} className="relative aspect-square rounded-3xl overflow-hidden border">
                     <img src={p} className="w-full h-full object-cover" />
-                    <button className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(p)}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
