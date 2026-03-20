@@ -3,12 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User, MapPin, Phone, ArrowRight, CheckCircle2, ChevronRight, Map, Building2, RefreshCw } from 'lucide-react';
 import { User as UserType } from '../types';
 import { cn } from '../utils/cn';
-
-const PHONE_COUNTRIES = [
-  { code: '+351', flag: '🇵🇹' },
-  { code: '+34',  flag: '🇪🇸' },
-  { code: '+33',  flag: '🇫🇷' },
-];
+import { PhoneCountrySelect } from './PhoneCountrySelect';
 
 interface OnboardingScreenProps {
   user: UserType;
@@ -86,15 +81,10 @@ export function OnboardingScreen({ user, onComplete }: OnboardingScreenProps) {
                 <div className="space-y-2">
                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-4">Telemóvel</label>
                   <div className="flex gap-2">
-                    <select
+                    <PhoneCountrySelect
                       value={phoneCountry}
-                      onChange={(e) => setPhoneCountry(e.target.value)}
-                      className="h-16 bg-slate-50 border-2 border-slate-100 rounded-[20px] font-black text-sm text-slate-600 text-center outline-none focus:border-primary px-3 shrink-0"
-                    >
-                      {PHONE_COUNTRIES.map(c => (
-                        <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                      ))}
-                    </select>
+                      onChange={setPhoneCountry}
+                    />
                     <input
                       type="tel"
                       value={phoneNumber}

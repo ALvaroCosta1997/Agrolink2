@@ -48,6 +48,7 @@ import { Lock, LogIn, Loader2 } from "lucide-react";
 
 import { cn } from "./utils/cn";
 import * as api from "./api";
+import { PhoneCountrySelect } from "./components/PhoneCountrySelect";
 
 type View =
   | "explorar"
@@ -1300,17 +1301,17 @@ export default function App() {
                 },
                 {
                   label: "Total Vistas",
-                  value: "1.2k",
+                  value: myAds.reduce((s, l) => s + (l.stats?.views ?? 0), 0),
                   color: "text-secondary",
                 },
                 {
                   label: "Total Contactos",
-                  value: "45",
+                  value: myAds.reduce((s, l) => s + (l.stats?.contacts ?? 0), 0),
                   color: "text-green-600",
                 },
                 {
                   label: "Interessados",
-                  value: "89",
+                  value: myAds.reduce((s, l) => s + (l.stats?.saves ?? 0), 0),
                   color: "text-red-500",
                 },
               ].map((stat, i) => (
@@ -1349,6 +1350,7 @@ export default function App() {
                   <MyListingCard
                     key={l.id}
                     listing={l}
+                    onEdit={() => toast.info("Edição de anúncios em breve")}
                     onMarkAsSold={async () => {
                       setListings((prev) =>
                         prev.map((li) =>
@@ -1489,19 +1491,14 @@ export default function App() {
                     />
                     <div className="flex flex-col gap-1 mt-1">
                       <div className="flex items-center gap-2">
-                        <select
+                        <PhoneCountrySelect
                           value={currentUser.phoneCountry || '+351'}
-                          onChange={(e) => {
-                            const updatedUser = { ...currentUser, phoneCountry: e.target.value };
+                          onChange={(code) => {
+                            const updatedUser = { ...currentUser, phoneCountry: code };
                             setCurrentUser(updatedUser);
-                            api.profile.update({ phoneCountry: e.target.value }).catch(console.error);
+                            api.profile.update({ phoneCountry: code }).catch(console.error);
                           }}
-                          className="text-sm font-bold text-slate-400 bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg"
-                        >
-                          <option value="+351">🇵🇹 +351</option>
-                          <option value="+34">🇪🇸 +34</option>
-                          <option value="+33">🇫🇷 +33</option>
-                        </select>
+                        />
                         <input
                           type="text"
                           value={currentUser.phoneNumber || ''}

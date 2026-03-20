@@ -9,6 +9,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion } from 'motion/react';
 import { supabase } from '../api';
+import { PhoneCountrySelect, PHONE_COUNTRIES } from './PhoneCountrySelect';
 
 // Mapping of Portuguese Municipalities to Districts
 const MUNICIPALITY_TO_DISTRICT: Record<string, string> = {
@@ -67,12 +68,6 @@ interface PublishWizardProps {
   onPublish: (listing: Listing) => void;
   currentUser: User | null;
 }
-
-const PHONE_COUNTRIES = [
-  { code: '+351', flag: '🇵🇹' },
-  { code: '+34',  flag: '🇪🇸' },
-  { code: '+33',  flag: '🇫🇷' },
-];
 
 const LIFE_STAGE_OPTIONS = [
   { id: 'NEWBORN', label: 'Recém-nascido', speciesLabels: { Vacas: 'Vitelo', Ovelhas: 'Borrego', Cabras: 'Cabrito' } },
@@ -656,15 +651,10 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
             <div className="flex flex-col gap-3">
               <label className="text-sm font-black uppercase tracking-widest text-slate-400">Telefone de Contacto</label>
               <div className="flex gap-2">
-                <select
+                <PhoneCountrySelect
                   value={formData.phoneCountry}
-                  onChange={(e) => setFormData({...formData, phoneCountry: e.target.value})}
-                  className="w-28 h-16 bg-slate-100 border-2 border-slate-100 rounded-2xl font-black text-sm text-slate-600 text-center outline-none focus:border-primary px-2"
-                >
-                  {PHONE_COUNTRIES.map(c => (
-                    <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                  ))}
-                </select>
+                  onChange={(code) => setFormData({...formData, phoneCountry: code})}
+                />
                 <input 
                   type="tel" 
                   placeholder="912 345 678"
