@@ -33,7 +33,14 @@ const headers = async (auth = false): Promise<Record<string, string>> => {
 };
 
 const handleResponse = async (res: Response) => {
-  const data = await res.json();
+  const text = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    if (!res.ok) throw new Error(`Erro ${res.status}`);
+    throw new Error("Resposta inválida do servidor");
+  }
   if (!res.ok) {
     console.error(`API Error [${res.status}]:`, data);
     throw new Error(data.error || `Erro ${res.status}`);

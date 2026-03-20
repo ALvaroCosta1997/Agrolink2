@@ -402,13 +402,14 @@ export default function App() {
 
   const handleStartChat = (listing: Listing) => {
     requireAuth(async () => {
-      if (!currentUser) return;
-      
+      const user = currentUserRef.current;
+      if (!user) return;
+
       if (!isUuid(listing.sellerId)) {
         toast.error("Este anúncio é apenas de demonstração e não suporta chat.");
         return;
       }
-      
+
       let existingChat = chats.find(
         (c) =>
           c.listingId === listing.id ||
@@ -426,7 +427,7 @@ export default function App() {
           id: `chat_${Date.now()}`,
           listingId: listing.id,
           sellerId: listing.sellerId,
-          buyerId: currentUser.id,
+          buyerId: user.id,
           listingTitle: listingContext,
           listingPreview: listing.photos[0],
           userName: listing.contacts.name,
@@ -534,17 +535,37 @@ export default function App() {
         const session = await api.auth.getSession();
         if (session) {
           setAccessToken(session.access_token);
+
+          // Always restore the user — even if profile fetch fails
+          let profileData: UserType | null = null;
           try {
-            const profileData = await api.profile.get();
-            if (profileData) {
-              setCurrentUser({
-                ...profileData,
-                isLoggedIn: true,
-                id: session.user.id,
-                email: session.user.email,
-              } as UserType);
-            }
-            // Load user data
+            profileData = await api.profile.get();
+          } catch (e) {
+            console.log("Failed to load profile on init:", e);
+          }
+
+          setCurrentUser({
+            id: session.user.id,
+            name: profileData?.name || session.user.email?.split("@")[0] || "Utilizador",
+            email: session.user.email || "",
+            isLoggedIn: true,
+            draftMessage:
+              profileData?.draftMessage ||
+              "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+            mode: profileData?.mode || "AMBOS",
+            region: profileData?.region || "",
+            isFirstLogin: profileData?.isFirstLogin ?? false,
+            phoneNumber: profileData?.phoneNumber || "",
+            phoneCountry: profileData?.phoneCountry || "+351",
+            contactVisibility: profileData?.contactVisibility || {
+              enabled: true,
+              mode: "ALWAYS",
+              startTime: "09:00",
+              endTime: "19:00",
+            },
+          } as UserType);
+
+          try {
             const [userFavs, userChats] = await Promise.all([
               api.favorites.get(),
               api.chats.getAll(),
@@ -1313,6 +1334,7 @@ export default function App() {
           </div>
         );
       case "mensagens":
+        if (!currentUser) return null;
         return (
           <ChatHistory
             chats={chats}
