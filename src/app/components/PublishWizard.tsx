@@ -67,7 +67,16 @@ interface PublishWizardProps {
   onCancel: () => void;
   onPublish: (listing: Listing) => void;
   currentUser: User | null;
+  initialData?: Listing;
+  isEditMode?: boolean;
 }
+
+const parsePhone = (phone: string): { country: string; number: string } => {
+  if (!phone) return { country: '+351', number: '' };
+  const match = phone.match(/^(\+\d+)\s(.+)$/);
+  if (match) return { country: match[1], number: match[2] };
+  return { country: '+351', number: phone };
+};
 
 const LIFE_STAGE_OPTIONS = [
   { id: 'NEWBORN', label: 'Recém-nascido', speciesLabels: { Vacas: 'Vitelo', Ovelhas: 'Borrego', Cabras: 'Cabrito' } },
@@ -76,7 +85,7 @@ const LIFE_STAGE_OPTIONS = [
   { id: 'SLAUGHTER', label: 'Pronto para abate' }
 ] as const;
 
-export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizardProps) {
+export function PublishWizard({ onCancel, onPublish, currentUser, initialData, isEditMode }: PublishWizardProps) {
   const [step, setStep] = useState(1);
   const totalSteps = 7;
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -84,36 +93,69 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState({
-    species: 'Vacas' as Species,
-    maleQty: 0,
-    femaleQty: 1,
-    malePrice: '' as string | number,
-    femalePrice: '' as string | number,
-    maleAvgWeight: '' as string | number,
-    femaleAvgWeight: '' as string | number,
-    lifeStage: 'ADULT' as LifeStage,
-    breed: '',
-    priceType: 'number' as 'number' | 'consulta',
-    municipality: '', 
-    distrito: '', 
-    freguesia: '',
-    address: '', 
-    lat: 38.5714, 
-    lng: -7.9135,
-    showExactLocation: false,
-    description: '',
-    phoneCountry: currentUser?.phoneCountry || '+351',
-    phoneNumber: currentUser?.phoneNumber || '',
-    whatsapp: true,
-    name: currentUser?.name || '',
-    photos: [] as string[],
-    tags: [] as string[]
-  });
+  const buildInitialFormData = () => {
+    if (initialData) {
+      const { country, number } = parsePhone(initialData.contacts.phone);
+      return {
+        species: initialData.species,
+        maleQty: initialData.maleQty,
+        femaleQty: initialData.femaleQty,
+        malePrice: initialData.malePrice ?? '' as string | number,
+        femalePrice: initialData.femalePrice ?? '' as string | number,
+        maleAvgWeight: initialData.maleAvgWeight ?? '' as string | number,
+        femaleAvgWeight: initialData.femaleAvgWeight ?? '' as string | number,
+        lifeStage: initialData.lifeStage,
+        breed: initialData.breed || '',
+        priceType: (initialData.price === 'Sob consulta' ? 'consulta' : 'number') as 'number' | 'consulta',
+        municipality: initialData.location.municipality,
+        distrito: '',
+        freguesia: initialData.location.freguesia,
+        address: initialData.location.address || '',
+        lat: initialData.location.lat,
+        lng: initialData.location.lng,
+        showExactLocation: initialData.location.showExactLocation || false,
+        description: initialData.description,
+        phoneCountry: country,
+        phoneNumber: number,
+        whatsapp: initialData.contacts.whatsapp,
+        name: initialData.contacts.name,
+        photos: initialData.photos || [],
+        tags: initialData.tags || []
+      };
+    }
+    return {
+      species: 'Vacas' as Species,
+      maleQty: 0,
+      femaleQty: 1,
+      malePrice: '' as string | number,
+      femalePrice: '' as string | number,
+      maleAvgWeight: '' as string | number,
+      femaleAvgWeight: '' as string | number,
+      lifeStage: 'ADULT' as LifeStage,
+      breed: '',
+      priceType: 'number' as 'number' | 'consulta',
+      municipality: '',
+      distrito: '',
+      freguesia: '',
+      address: '',
+      lat: 38.5714,
+      lng: -7.9135,
+      showExactLocation: false,
+      description: '',
+      phoneCountry: currentUser?.phoneCountry || '+351',
+      phoneNumber: currentUser?.phoneNumber || '',
+      whatsapp: true,
+      name: currentUser?.name || '',
+      photos: [] as string[],
+      tags: [] as string[]
+    };
+  };
 
-  // Also update if user logs in while wizard is open
+  const [formData, setFormData] = useState(buildInitialFormData);
+
+  // Also update if user logs in while wizard is open (only in create mode)
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !isEditMode) {
       setFormData(prev => ({
         ...prev,
         name: prev.name || currentUser.name,
@@ -231,9 +273,9 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
     const totalQty = formData.maleQty + formData.femaleQty;
     const price = calculateTotal();
     const finalPhone = `${formData.phoneCountry} ${formData.phoneNumber}`.trim();
-    
+
     const newListing: Listing = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: isEditMode && initialData ? initialData.id : Math.random().toString(36).substr(2, 9),
       species: formData.species,
       maleQty: formData.maleQty,
       femaleQty: formData.femaleQty,
@@ -672,7 +714,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
         const finalPrice = calculateTotal();
         return (
           <div className="flex flex-col gap-8 pb-10">
-            <h2 className="text-3xl font-black">Rever e Publicar</h2>
+            <h2 className="text-3xl font-black">{isEditMode ? 'Rever e Guardar' : 'Rever e Publicar'}</h2>
             
             <div className="bg-slate-50 rounded-3xl p-6 flex flex-col gap-6">
               <div className="flex items-center gap-6">
@@ -767,7 +809,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser }: PublishWizar
             step === 1 ? "w-full bg-primary text-white shadow-primary/30" : "flex-[2] bg-primary text-white shadow-primary/30"
           )}
         >
-          {step === totalSteps ? 'Publicar Agora' : 'Continuar'}
+          {step === totalSteps ? (isEditMode ? 'Guardar Alterações' : 'Publicar Agora') : 'Continuar'}
         </button>
       </div>
 

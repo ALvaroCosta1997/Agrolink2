@@ -49,6 +49,7 @@ import { Lock, LogIn, Loader2 } from "lucide-react";
 import { cn } from "./utils/cn";
 import * as api from "./api";
 import { PhoneCountrySelect } from "./components/PhoneCountrySelect";
+import { DistritoSelect } from "./components/DistritoSelect";
 
 type View =
   | "explorar"
@@ -156,6 +157,8 @@ export default function App() {
   const [currentView, setCurrentView] =
     useState<View>("explorar");
   const [selectedListing, setSelectedListing] =
+    useState<Listing | null>(null);
+  const [editingListing, setEditingListing] =
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const PRICE_SCALE_BY_SPECIES = {
@@ -598,15 +601,17 @@ export default function App() {
         }
 
         // 3. Merge photos from listing_photos table (photos column doesn't exist on listings table)
+        const STORAGE_BASE = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
         try {
           const { data: photosData } = await api.supabase
             .from("listing_photos")
-            .select("listing_id, url");
+            .select("listing_id, storage_path, sort_order")
+            .order("sort_order", { ascending: true });
           if (photosData && photosData.length > 0) {
             const photosByListing: Record<string, string[]> = {};
-            photosData.forEach(({ listing_id, url }: { listing_id: string; url: string }) => {
+            photosData.forEach(({ listing_id, storage_path }: { listing_id: string; storage_path: string }) => {
               if (!photosByListing[listing_id]) photosByListing[listing_id] = [];
-              photosByListing[listing_id].push(url);
+              photosByListing[listing_id].push(STORAGE_BASE + storage_path);
             });
             serverListings = serverListings.map((l) => ({
               ...l,
@@ -772,15 +777,56 @@ export default function App() {
               : l
           )
         );
-        // Persist photo URLs into listing_photos table
+        // Persist photos into listing_photos table using storage_path
         if (finalListing.photos.length > 0) {
+          const STORAGE_BASE_PUBLISH = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
           await api.supabase.from("listing_photos").insert(
-            finalListing.photos.map((url) => ({ listing_id: savedListing.id, url }))
+            finalListing.photos.map((url, i) => {
+              const storage_path = url.startsWith(STORAGE_BASE_PUBLISH)
+                ? decodeURIComponent(url.slice(STORAGE_BASE_PUBLISH.length))
+                : url;
+              return { listing_id: savedListing.id, storage_path, sort_order: i };
+            })
           );
         }
       } catch (e) {
         console.error("Failed to persist listing:", e);
         toast.error("Erro ao guardar anúncio no servidor. O anúncio está visível localmente.");
+      }
+    });
+  };
+
+  const handleUpdate = (updatedListing: Listing) => {
+    requireAuth(async () => {
+      const originalId = editingListing!.id;
+      const merged = { ...updatedListing, id: originalId };
+      // Optimistic update
+      setListings((prev) => prev.map((l) => (l.id === originalId ? merged : l)));
+      setEditingListing(null);
+      setCurrentView("meus-anuncios");
+      toast.success("Anúncio atualizado com sucesso!");
+
+      try {
+        const savedListing = await api.listings.update(originalId, merged);
+        // Replace photos: delete old rows, insert new ones
+        await api.supabase.from("listing_photos").delete().eq("listing_id", originalId);
+        if (merged.photos.length > 0) {
+          const STORAGE_BASE_UPDATE = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
+          await api.supabase.from("listing_photos").insert(
+            merged.photos.map((url, i) => {
+              const storage_path = url.startsWith(STORAGE_BASE_UPDATE)
+                ? decodeURIComponent(url.slice(STORAGE_BASE_UPDATE.length))
+                : url;
+              return { listing_id: originalId, storage_path, sort_order: i };
+            })
+          );
+        }
+        setListings((prev) =>
+          prev.map((l) => (l.id === originalId ? { ...savedListing, photos: merged.photos } : l))
+        );
+      } catch (e) {
+        console.error("Failed to update listing:", e);
+        toast.error("Erro ao atualizar anúncio no servidor.");
       }
     });
   };
@@ -1350,7 +1396,7 @@ export default function App() {
                   <MyListingCard
                     key={l.id}
                     listing={l}
-                    onEdit={() => toast.info("Edição de anúncios em breve")}
+                    onEdit={() => { setEditingListing(l); setCurrentView("publicar"); }}
                     onMarkAsSold={async () => {
                       setListings((prev) =>
                         prev.map((li) =>
@@ -1404,7 +1450,15 @@ export default function App() {
           />
         );
       case "publicar":
-        return (
+        return editingListing ? (
+          <PublishWizard
+            onCancel={() => { setEditingListing(null); setCurrentView("meus-anuncios"); }}
+            onPublish={handleUpdate}
+            currentUser={currentUser}
+            initialData={editingListing}
+            isEditMode
+          />
+        ) : (
           <PublishWizard
             onCancel={() => setCurrentView("explorar")}
             onPublish={handlePublish}
@@ -1515,23 +1569,15 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-slate-400" />
-                        <select
+                        <DistritoSelect
                           value={currentUser.region?.split(',')[0] || ''}
-                          onChange={(e) => {
-                            const region = `${e.target.value}, Portugal`;
+                          onChange={(district) => {
+                            const region = `${district}, Portugal`;
                             const updatedUser = { ...currentUser, region };
                             setCurrentUser(updatedUser);
                             api.profile.update({ region }).catch(console.error);
                           }}
-                          className="text-sm font-bold text-slate-500 bg-transparent border-none outline-none focus:ring-2 ring-primary/20 rounded-lg px-1 uppercase tracking-widest"
-                        >
-                          <option value="">Selecionar Distrito</option>
-                          {[
-                            'Beja', 'Évora', 'Portalegre', 'Santarém', 'Setúbal', 'Castelo Branco', 'Faro', 'Lisboa', 'Porto', 'Braga', 'Viseu', 'Aveiro', 'Coimbra', 'Leiria', 'Viana do Castelo', 'Vila Real', 'Bragança', 'Guarda'
-                          ].sort().map(d => (
-                            <option key={d} value={d}>{d}</option>
-                          ))}
-                        </select>
+                        />
                       </div>
                     </div>
                   </div>
