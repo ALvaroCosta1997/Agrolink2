@@ -1,5 +1,5 @@
-import React from 'react';
-import { ChevronLeft, MapPin, Phone, MessageCircle, Share2, Heart, Calendar, Info, CheckCircle2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight, MapPin, Phone, MessageCircle, Share2, Heart, Calendar, Info, CheckCircle2 } from 'lucide-react';
 import { Listing } from '../types';
 import { ContactPolicy } from '../App';
 import { motion } from 'motion/react';
@@ -30,6 +30,7 @@ export function ListingDetails({
   onRequireAuth,
   policy
 }: ListingDetailsProps) {
+  const [photoIndex, setPhotoIndex] = useState(0);
   const speciesIcon = listing.species === 'Vacas' ? '🐄' : listing.species === 'Ovelhas' ? '🐑' : '🐐';
   const totalQty = listing.maleQty + listing.femaleQty;
 
@@ -65,7 +66,9 @@ export function ListingDetails({
     return base;
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsApp = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     onRequireAuth(() => {
       const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
       const finalPhone = cleanPhone.startsWith('351') ? cleanPhone : `351${cleanPhone}`;
@@ -102,11 +105,30 @@ export function ListingDetails({
       <div className="max-w-4xl mx-auto">
         {/* Galeria */}
         <div className="relative aspect-[4/3] sm:aspect-video w-full overflow-hidden">
-          <ImageWithFallback 
-            src={listing.photos[0]} 
-            alt={listing.species} 
-            className="w-full h-full object-cover" 
+          <ImageWithFallback
+            src={listing.photos[photoIndex] || listing.photos[0]}
+            alt={listing.species}
+            className="w-full h-full object-cover"
           />
+          {listing.photos.length > 1 && (
+            <>
+              <button
+                onClick={() => setPhotoIndex((i) => (i - 1 + listing.photos.length) % listing.photos.length)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              >
+                <ChevronLeft className="w-6 h-6 text-secondary" />
+              </button>
+              <button
+                onClick={() => setPhotoIndex((i) => (i + 1) % listing.photos.length)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+              >
+                <ChevronRight className="w-6 h-6 text-secondary" />
+              </button>
+              <div className="absolute bottom-6 right-6 px-3 py-1.5 bg-black/60 backdrop-blur-md text-white rounded-xl font-black text-sm">
+                {photoIndex + 1} / {listing.photos.length}
+              </div>
+            </>
+          )}
           <div className="absolute bottom-6 left-6 px-4 py-2 bg-black/60 backdrop-blur-md text-white rounded-2xl flex items-center gap-3 font-black text-lg">
             <span>{speciesIcon}</span>
             <span className="uppercase tracking-widest text-sm">{listing.species}</span>

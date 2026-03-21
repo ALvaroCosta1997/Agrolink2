@@ -214,8 +214,8 @@ export default function App() {
 
       if (newSpecies.length === 1) {
         const config = PRICE_SCALE_BY_SPECIES[newSpecies[0] as Species];
-        nextFilters.minPrice = config.defaultMin;
-        nextFilters.maxPrice = config.defaultMax;
+        nextFilters.minPrice = config.min;
+        nextFilters.maxPrice = config.max;
       }
 
       return nextFilters;
@@ -654,7 +654,7 @@ export default function App() {
         const hasMalePrice = l.malePrice !== undefined && l.malePrice !== null;
         const hasFemalePrice = l.femalePrice !== undefined && l.femalePrice !== null;
         
-        if (!hasMalePrice && !hasFemalePrice) return false;
+        if (!hasMalePrice && !hasFemalePrice) return true; // consulta listings always pass the price filter
         
         return inRange(l.malePrice) || inRange(l.femalePrice);
       })();
