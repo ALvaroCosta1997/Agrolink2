@@ -35,12 +35,10 @@ export const BREEDS_BY_SPECIES: Record<Species, string[]> = {
     'Angus', 'Mirandesa', 'Hereford', 'Simmental', "Blonde d'Aquitaine",
   ],
   Ovelhas: [
-    'Cruzado', 'Merina Branca', 'Merina Preta', 'Bordaleira Serra da Estrela',
-    'Churra Galega', 'Ile-de-France', 'Lacaune', 'Suffolk', 'Campaniça', 'Texel',
+    'Cruzado', 'Serra da Estrela', 'Merina Branca', 'Merina Preta', 'Churra da Terra Quente',
   ],
   Cabras: [
-    'Cruzado', 'Serrana', 'Serpentina', 'Charnequeira', 'Algarvia',
-    'Bravia', 'Murciana-Granadina', 'Saanen', 'Alpina', 'Boer',
+    'Cruzado', 'Serrana', 'Charnequeira', 'Serpentina', 'Algarvia',
   ],
 };
 
