@@ -280,7 +280,22 @@ export default function App() {
           api.chats.getAll(),
         ]);
         setFavorites(userFavs);
-        setChats(userChats);
+        // Compute unread flag for each chat
+        try {
+          const { data: unreadRows } = await api.supabase
+            .from("chat_messages")
+            .select("chat_id")
+            .neq("sender_id", userId)
+            .is("read_at", null);
+          if (unreadRows && unreadRows.length > 0) {
+            const unreadChatIds = new Set(unreadRows.map((r: any) => r.chat_id as string));
+            setChats(userChats.map((c) => ({ ...c, unread: unreadChatIds.has(c.id) })));
+          } else {
+            setChats(userChats);
+          }
+        } catch {
+          setChats(userChats);
+        }
       } catch (e) {
         console.log("Non-critical: failed to load user data", e);
       }
@@ -437,6 +452,24 @@ export default function App() {
     });
   };
 
+  const handleSelectChat = async (chatId: string | null) => {
+    setSelectedChatId(chatId);
+    if (!chatId || !currentUser) return;
+    // Optimistically clear unread badge
+    setChats((prev) => prev.map((c) => c.id === chatId ? { ...c, unread: false } : c));
+    // Mark messages as read in DB
+    try {
+      await api.supabase
+        .from("chat_messages")
+        .update({ read_at: new Date().toISOString() })
+        .eq("chat_id", chatId)
+        .neq("sender_id", currentUser.id)
+        .is("read_at", null);
+    } catch (e) {
+      console.log("Non-critical: failed to mark messages as read", e);
+    }
+  };
+
   const handleDeleteChat = async (chatId: string) => {
     setChats((prev) => prev.filter((c) => c.id !== chatId));
     if (selectedChatId === chatId) setSelectedChatId(null);
@@ -548,7 +581,22 @@ export default function App() {
               api.chats.getAll(),
             ]);
             setFavorites(userFavs);
-            pendingChats = userChats; // enriched with listing photos in step 4 below
+            // Compute unread flag: any message in the chat not sent by us with read_at IS NULL
+            try {
+              const { data: unreadRows } = await api.supabase
+                .from("chat_messages")
+                .select("chat_id")
+                .neq("sender_id", session.user.id)
+                .is("read_at", null);
+              if (unreadRows && unreadRows.length > 0) {
+                const unreadChatIds = new Set(unreadRows.map((r: any) => r.chat_id as string));
+                pendingChats = userChats.map((c) => ({ ...c, unread: unreadChatIds.has(c.id) }));
+              } else {
+                pendingChats = userChats;
+              }
+            } catch {
+              pendingChats = userChats;
+            }
           } catch (e) {
             console.log("Non-critical: failed to load user data on init", e);
           }
@@ -1468,7 +1516,7 @@ export default function App() {
           <ChatHistory
             chats={chats}
             selectedChatId={selectedChatId}
-            onSelectChat={setSelectedChatId}
+            onSelectChat={handleSelectChat}
             onSendMessage={handleSendMessage}
             onDeleteChat={handleDeleteChat}
             currentUser={currentUser}
