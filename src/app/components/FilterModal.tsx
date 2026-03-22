@@ -3,16 +3,13 @@ import { X, CheckCircle2, Minus, Plus, Info } from 'lucide-react';
 import { Species, Sex, formatCurrency } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { BREEDS_BY_SPECIES } from './PublishWizard';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const BREED_OPTIONS = {
-  Vacas: ['Alentejana', 'Mertolenga', 'Minhota', 'Mirandesa', 'Barrosã', 'Limousine', 'Charolês', 'Angus', 'Outra/Não sei'],
-  Ovelhas: ['Merino', 'Churra', 'Bordaleira', 'Serra da Estrela', 'Ile-de-France', 'Outra/Não sei'],
-  Cabras: ['Serrana', 'Serpentina', 'Charnequeira', 'Murciana', 'Outra/Não sei']
-};
+const BREED_OPTIONS = BREEDS_BY_SPECIES;
 
 import * as Slider from '@radix-ui/react-slider';
 

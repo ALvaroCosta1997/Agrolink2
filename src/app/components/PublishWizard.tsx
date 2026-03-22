@@ -29,6 +29,21 @@ const MUNICIPALITY_TO_DISTRICT: Record<string, string> = {
   'Albufeira': 'Faro', 'Alcoutim': 'Faro', 'Aljezur': 'Faro', 'Castro Marim': 'Faro', 'Faro': 'Faro', 'Lagoa': 'Faro', 'Lagos': 'Faro', 'Loulé': 'Faro', 'Monchique': 'Faro', 'Olhão': 'Faro', 'Portimão': 'Faro', 'São Brás de Alportel': 'Faro', 'Silves': 'Faro', 'Tavira': 'Faro', 'Vila do Bispo': 'Faro', 'Vila Real de Santo António': 'Faro'
 };
 
+export const BREEDS_BY_SPECIES: Record<Species, string[]> = {
+  Vacas: [
+    'Cruzado', 'Alentejana', 'Mertolenga', 'Charolês', 'Limousine',
+    'Angus', 'Mirandesa', 'Hereford', 'Simmental', "Blonde d'Aquitaine",
+  ],
+  Ovelhas: [
+    'Cruzado', 'Merina Branca', 'Merina Preta', 'Bordaleira Serra da Estrela',
+    'Churra Galega', 'Ile-de-France', 'Lacaune', 'Suffolk', 'Campaniça', 'Texel',
+  ],
+  Cabras: [
+    'Cruzado', 'Serrana', 'Serpentina', 'Charnequeira', 'Algarvia',
+    'Bravia', 'Murciana-Granadina', 'Saanen', 'Alpina', 'Boer',
+  ],
+};
+
 // Custom Marker for Publish Wizard
 const createCustomIcon = (species: Species) => {
   const speciesIcon = species === 'Vacas' ? '🐄' : species === 'Ovelhas' ? '🐑' : '🐐';
@@ -363,7 +378,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
               {(['Vacas', 'Ovelhas', 'Cabras'] as Species[]).map(s => (
                 <button 
                   key={s}
-                  onClick={() => setFormData({...formData, species: s})}
+                  onClick={() => setFormData({...formData, species: s, breed: ''})}
                   className={cn(
                     "flex items-center justify-between p-6 rounded-3xl border-2 transition-all text-left",
                     formData.species === s ? "border-primary bg-primary/5 shadow-lg" : "border-slate-100 bg-white"
@@ -534,7 +549,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
             <div className="flex flex-col gap-3">
               <label className="text-sm font-black uppercase tracking-widest text-slate-400">Raça (Opcional)</label>
               <div className="grid grid-cols-2 gap-2">
-                {['Cruzados', 'Puros', 'Limousine', 'Charolês', 'Alentejana', 'Merina'].map(r => (
+                {(BREEDS_BY_SPECIES[formData.species] || []).map(r => (
                   <button 
                     key={r}
                     onClick={() => setFormData({...formData, breed: r})}
