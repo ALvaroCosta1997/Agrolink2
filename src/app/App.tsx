@@ -180,46 +180,14 @@ export default function App() {
     minFemaleWeight: 0,
   });
 
-  // Reset/Clamp price filters when species changes
-  useEffect(() => {
-    if (filters.species.length === 1) {
-      const sp = filters.species[0];
-      const config = PRICE_SCALE_BY_SPECIES[sp];
-      
-      // If price was at default or 0/8000, or species just changed, set defaults
-      setFilters(prev => {
-        // We only reset if the previous species was different or empty
-        // Since we don't have "previousSpecies" state, we check if current values are out of range
-        // or we can use a ref to track last species
-        return {
-          ...prev,
-          minPrice: Math.max(config.min, Math.min(prev.minPrice, config.max)),
-          maxPrice: Math.max(config.min, Math.min(prev.maxPrice, config.max)),
-        };
-      });
-    }
-  }, [filters.species]);
 
-  // Handle Species change defaults explicitly
+  // Quick species filter buttons — only toggle species, never touch price range
   const handleSpeciesChange = (s: Species) => {
-    setFilters((prev) => {
-      const isSelectedNow = prev.species.includes(s);
-      const newSpecies = isSelectedNow ? [] : [s];
-      
-      let nextFilters = {
-        ...prev,
-        species: newSpecies,
-        breeds: [],
-      };
-
-      if (newSpecies.length === 1) {
-        const config = PRICE_SCALE_BY_SPECIES[newSpecies[0] as Species];
-        nextFilters.minPrice = config.min;
-        nextFilters.maxPrice = config.max;
-      }
-
-      return nextFilters;
-    });
+    setFilters((prev) => ({
+      ...prev,
+      species: prev.species.includes(s) ? [] : [s],
+      breeds: [],
+    }));
   };
   const [hoveredListingId, setHoveredListingId] = useState<
     string | null
