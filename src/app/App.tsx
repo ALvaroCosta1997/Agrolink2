@@ -161,6 +161,7 @@ export default function App() {
   const [editingListing, setEditingListing] =
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [favSpeciesFilter, setFavSpeciesFilter] = useState<Species | null>(null);
 
   const [filters, setFilters] = useState({
     species: [] as Species[],
@@ -1064,9 +1065,12 @@ export default function App() {
         const favoriteListings = listings.filter((l) =>
           favorites.includes(l.id),
         );
+        const filteredFavorites = favSpeciesFilter
+          ? favoriteListings.filter((l) => l.species === favSpeciesFilter)
+          : favoriteListings;
         return (
           <div className="p-4 md:p-10 max-w-5xl mx-auto pb-32">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-4xl md:text-5xl font-black text-secondary leading-tight italic">
                   Favoritos
@@ -1076,11 +1080,45 @@ export default function App() {
                 </p>
               </div>
               <div className="bg-primary/10 px-4 py-2 rounded-xl text-primary font-black text-sm">
-                {favorites.length} ITENS
+                {filteredFavorites.length} ITENS
               </div>
             </div>
 
-            {favorites.length === 0 ? (
+            {favoriteListings.length > 0 && (
+              <div className="flex gap-3 mb-6">
+                {(["Vacas", "Ovelhas", "Cabras"] as Species[]).map((s) => {
+                  const isSelected = favSpeciesFilter === s;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setFavSpeciesFilter(isSelected ? null : s)}
+                      className={cn(
+                        "h-14 flex-1 px-4 rounded-2xl font-black text-xs border-2 transition-all flex flex-col items-center justify-center gap-1 active:scale-95",
+                        isSelected
+                          ? "bg-primary text-white border-primary shadow-lg shadow-primary/20"
+                          : "bg-white text-slate-400 border-slate-100 hover:border-primary/30 hover:text-primary"
+                      )}
+                    >
+                      <span className="text-2xl leading-none">
+                        {s === "Vacas" ? "🐄" : s === "Ovelhas" ? "🐑" : "🐐"}
+                      </span>
+                      <span className="uppercase tracking-widest leading-none text-[10px] text-center truncate w-full">{s}</span>
+                    </button>
+                  );
+                })}
+                {favSpeciesFilter && (
+                  <button
+                    onClick={() => setFavSpeciesFilter(null)}
+                    className="h-14 px-4 rounded-2xl font-black text-xs text-red-500 bg-red-50 border-2 border-red-100 uppercase tracking-tighter whitespace-nowrap hover:bg-red-100 transition-colors flex flex-col items-center justify-center gap-1 active:scale-95"
+                  >
+                    <span className="text-xl">✕</span>
+                    <span className="leading-none text-[9px]">Limpar</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {favoriteListings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-[48px] border-2 border-dashed border-slate-200 p-10">
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                   <Heart className="w-10 h-10 text-slate-200" />
@@ -1098,9 +1136,27 @@ export default function App() {
                   Explorar Mercado
                 </button>
               </div>
+            ) : filteredFavorites.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-[48px] border-2 border-dashed border-slate-200 p-10">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                  <span className="text-4xl">{favSpeciesFilter === "Vacas" ? "🐄" : favSpeciesFilter === "Ovelhas" ? "🐑" : "🐐"}</span>
+                </div>
+                <p className="text-xl font-black text-secondary">
+                  Sem favoritos de {favSpeciesFilter}
+                </p>
+                <p className="text-sm font-bold text-slate-400 mt-2 max-w-xs mx-auto">
+                  Não tem nenhum anúncio de {favSpeciesFilter} guardado.
+                </p>
+                <button
+                  onClick={() => setFavSpeciesFilter(null)}
+                  className="mt-8 px-8 h-14 bg-secondary text-white rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all shadow-lg"
+                >
+                  Ver Todos
+                </button>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {favoriteListings.map((l) => (
+                {filteredFavorites.map((l) => (
                   <FavoriteCard
                     key={l.id}
                     listing={l}
