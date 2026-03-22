@@ -1,9 +1,26 @@
-import React from "react";
-import { ChevronLeft, Shield, AlertTriangle, FileText, Phone } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ChevronLeft, Shield, AlertTriangle, FileText, Phone, Flag } from "lucide-react";
+import * as api from "../api";
 
 interface SecurityPageProps {
   onBack: () => void;
+  userId?: string;
 }
+
+interface Report {
+  id: string;
+  reason: string;
+  details: string | null;
+  status: string;
+  created_at: string;
+  listing_id: string | null;
+}
+
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  pending:    { label: "Pendente",   cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  reviewing:  { label: "Em análise", cls: "bg-blue-100 text-blue-700 border-blue-200" },
+  resolved:   { label: "Resolvida",  cls: "bg-green-100 text-green-700 border-green-200" },
+};
 
 function SectionCard({
   title,
@@ -40,7 +57,24 @@ function SectionCard({
   );
 }
 
-export function SecurityPage({ onBack }: SecurityPageProps) {
+export function SecurityPage({ onBack, userId }: SecurityPageProps) {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    setLoadingReports(true);
+    api.supabase
+      .from("reports")
+      .select("id, reason, details, status, created_at, listing_id")
+      .eq("reporter_id", userId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) setReports(data as Report[]);
+      })
+      .finally(() => setLoadingReports(false));
+  }, [userId]);
+
   return (
     <div className="fixed inset-0 z-[2000] bg-slate-50 overflow-y-auto no-scrollbar">
       {/* Header */}
@@ -192,6 +226,56 @@ export function SecurityPage({ onBack }: SecurityPageProps) {
             ))}
           </div>
         </div>
+
+        {/* My Reports */}
+        {userId && (
+          <div className="bg-white rounded-3xl border-2 border-slate-100 p-6 md:p-8">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 bg-red-50 rounded-2xl flex items-center justify-center shrink-0">
+                <Flag className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-secondary leading-snug">As Minhas Denúncias</h3>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">Denúncias que submeteu</p>
+              </div>
+            </div>
+
+            {loadingReports ? (
+              <div className="flex items-center justify-center py-10">
+                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            ) : reports.length === 0 ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <span className="text-3xl mb-3">🏳️</span>
+                <p className="font-black text-slate-400 text-sm">Não tem denúncias submetidas</p>
+                <p className="text-xs font-medium text-slate-300 mt-1">As suas denúncias aparecerão aqui.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {reports.map((r) => {
+                  const cfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
+                  const date = new Date(r.created_at).toLocaleDateString("pt-PT", {
+                    day: "2-digit", month: "short", year: "numeric",
+                  });
+                  return (
+                    <div key={r.id} className="flex items-start justify-between gap-3 py-4 border-b border-slate-100 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-secondary text-sm leading-snug">{r.reason}</p>
+                        {r.details && (
+                          <p className="text-xs font-medium text-slate-400 mt-0.5 truncate">{r.details}</p>
+                        )}
+                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-1">{date}</p>
+                      </div>
+                      <span className={`shrink-0 px-3 py-1 rounded-xl border text-[10px] font-black uppercase tracking-widest ${cfg.cls}`}>
+                        {cfg.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

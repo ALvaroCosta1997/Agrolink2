@@ -32,6 +32,7 @@ interface ExploreSidebarProps {
   cardRefs: React.MutableRefObject<{[key: string]: HTMLDivElement | null}>;
   isLoggedIn?: boolean;
   getContactPolicy: (listing: Listing) => ContactPolicy;
+  onReport?: (listing: Listing) => void;
 }
 
 export function ExploreSidebar({
@@ -59,7 +60,8 @@ export function ExploreSidebar({
   navigateToDetails,
   cardRefs,
   isLoggedIn,
-  getContactPolicy
+  getContactPolicy,
+  onReport,
 }: ExploreSidebarProps) {
   return (
     <>
@@ -260,6 +262,7 @@ export function ExploreSidebar({
                 isFavorite={favorites.includes(listing.id)}
                 onToggleFavorite={() => toggleFavorite(listing.id)}
                 onClick={() => { handleListingClick(listing); navigateToDetails(listing); }}
+                onReport={onReport ? () => onReport(listing) : undefined}
                 onChat={() => handleStartChat(listing)}
                 onCall={() => handleCall(listing)}
                 onWhatsApp={() => handleWhatsApp(listing)}

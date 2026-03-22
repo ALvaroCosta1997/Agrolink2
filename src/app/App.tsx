@@ -48,6 +48,7 @@ import { Lock, LogIn, Loader2 } from "lucide-react";
 import { HelpPage } from "./components/HelpPage";
 import { SecurityPage } from "./components/SecurityPage";
 import { TermsPage } from "./components/TermsPage";
+import { ReportModal } from "./components/ReportModal";
 
 import { cn } from "./utils/cn";
 import * as api from "./api";
@@ -166,6 +167,15 @@ export default function App() {
   const [showFilters, setShowFilters] = useState(false);
   const [favSpeciesFilter, setFavSpeciesFilter] = useState<Species | null>(null);
   const [profileSubPage, setProfileSubPage] = useState<"ajuda" | "seguranca" | "termos" | null>(null);
+  const [reportTarget, setReportTarget] = useState<{
+    listingId?: string;
+    listingTitle?: string;
+    reportedUserId?: string;
+  } | null>(null);
+
+  const handleOpenReport = (listingId?: string, reportedUserId?: string, listingTitle?: string) => {
+    requireAuth(() => setReportTarget({ listingId, reportedUserId, listingTitle }));
+  };
 
   const [filters, setFilters] = useState({
     species: [] as Species[],
@@ -958,6 +968,7 @@ export default function App() {
                     cardRefs={cardRefs}
                     isLoggedIn={!!currentUser}
                     getContactPolicy={(l) => getContactPolicy(l, currentUser)}
+                    onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
                   />
                 </div>
               </Resizable>
@@ -994,6 +1005,7 @@ export default function App() {
                   cardRefs={cardRefs}
                   isLoggedIn={!!currentUser}
                   getContactPolicy={(l) => getContactPolicy(l, currentUser)}
+                  onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
                 />
               </div>
             )}
@@ -1536,6 +1548,9 @@ export default function App() {
                 setCurrentView("detalhes");
               }
             }}
+            onReport={(listingId, reportedUserId, listingTitle) =>
+              handleOpenReport(listingId, reportedUserId, listingTitle)
+            }
           />
         );
       case "publicar":
@@ -1567,6 +1582,7 @@ export default function App() {
             onCall={() => handleCall(selectedListing)}
             isLoggedIn={!!currentUser}
             onRequireAuth={requireAuth}
+            onReport={() => handleOpenReport(selectedListing.id, selectedListing.sellerId, `${selectedListing.species} — ${selectedListing.breed || 'Lote'}`)}
             policy={getContactPolicy(selectedListing, currentUser)}
           />
         ) : null;
@@ -2085,7 +2101,7 @@ export default function App() {
         )}
         {profileSubPage === "seguranca" && (
           <motion.div key="seguranca" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.2 }}>
-            <SecurityPage onBack={() => setProfileSubPage(null)} />
+            <SecurityPage onBack={() => setProfileSubPage(null)} userId={currentUser?.id} />
           </motion.div>
         )}
         {profileSubPage === "termos" && (
@@ -2094,6 +2110,17 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {currentUser?.isLoggedIn && (
+        <ReportModal
+          isOpen={!!reportTarget}
+          onClose={() => setReportTarget(null)}
+          listingId={reportTarget?.listingId}
+          listingTitle={reportTarget?.listingTitle}
+          reportedUserId={reportTarget?.reportedUserId}
+          currentUserId={currentUser.id}
+        />
+      )}
 
       <Toaster position="top-center" richColors />
     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { Heart, MapPin, Phone, MessageCircle, ChevronLeft, ChevronRight, MessageSquare, Flag } from 'lucide-react';
 import { Listing, formatCurrency } from '../types';
 import { ContactPolicy } from '../App';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,6 +23,7 @@ interface ListingCardProps {
   isViewed?: boolean;
   isLoggedIn?: boolean;
   policy: ContactPolicy;
+  onReport?: () => void;
 }
 
 export function ListingCard({ 
@@ -40,7 +41,8 @@ export function ListingCard({
   isSelected,
   isViewed,
   isLoggedIn,
-  policy
+  policy,
+  onReport,
 }: ListingCardProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const speciesIcon = listing.species === 'Vacas' ? '🐄' : listing.species === 'Ovelhas' ? '🐑' : '🐐';
@@ -153,22 +155,33 @@ export function ListingCard({
 
               <div className="text-right flex flex-col items-end shrink-0">
                 <p className="text-[13px] @sm:text-[15px] @md:text-[20px] font-black text-primary leading-tight">
-                  {typeof listing.price === 'number' 
-                    ? formatCurrency(listing.price) 
+                  {typeof listing.price === 'number'
+                    ? formatCurrency(listing.price)
                     : listing.price}
                 </p>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFavorite?.();
-                  }}
-                  className={cn(
-                    "mt-1 w-6 h-6 @sm:w-8 @sm:h-8 rounded-full transition-all active:scale-90 flex items-center justify-center",
-                    isFavorite ? "text-red-500" : "text-slate-300"
+                <div className="flex items-center gap-0.5 mt-1">
+                  {onReport && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onReport(); }}
+                      className="w-6 h-6 @sm:w-7 @sm:h-7 rounded-full text-slate-200 hover:text-red-400 transition-colors active:scale-90 flex items-center justify-center"
+                      title="Denunciar anúncio"
+                    >
+                      <Flag className="w-3 h-3 @sm:w-3.5 @sm:h-3.5" />
+                    </button>
                   )}
-                >
-                  <Heart className={cn("w-3.5 h-3.5 @sm:w-5 @sm:h-5", isFavorite ? "fill-red-500" : "")} />
-                </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavorite?.();
+                    }}
+                    className={cn(
+                      "w-6 h-6 @sm:w-8 @sm:h-8 rounded-full transition-all active:scale-90 flex items-center justify-center",
+                      isFavorite ? "text-red-500" : "text-slate-300"
+                    )}
+                  >
+                    <Heart className={cn("w-3.5 h-3.5 @sm:w-5 @sm:h-5", isFavorite ? "fill-red-500" : "")} />
+                  </button>
+                </div>
               </div>
             </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, MessageCircle, Phone, ArrowLeft, Send, Sparkles, Trash2, Filter, SortDesc, CheckCircle2, X, TrendingUp } from 'lucide-react';
+import { Search, MessageCircle, Phone, ArrowLeft, Send, Sparkles, Trash2, Filter, SortDesc, CheckCircle2, X, TrendingUp, Flag } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -20,6 +20,7 @@ interface ChatHistoryProps {
   onViewDetails: (listingId: string) => void;
   currentUser: User;
   onUpdateDraft: (text: string) => void;
+  onReport?: (listingId: string, reportedUserId: string, listingTitle: string) => void;
 }
 
 type FilterStatus = 'all' | 'unread' | 'recent';
@@ -32,7 +33,8 @@ export function ChatHistory({
   onDeleteChat,
   onViewDetails,
   currentUser,
-  onUpdateDraft
+  onUpdateDraft,
+  onReport,
 }: ChatHistoryProps) {
   const [inputText, setInputText] = useState('');
   const [showDraftSettings, setShowDraftSettings] = useState(false);
@@ -127,6 +129,19 @@ export function ChatHistory({
           <button className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 active:scale-95 transition-transform">
             <Phone className="w-4 h-4" />
           </button>
+          {onReport && activeChat && (
+            <button
+              onClick={() => {
+                const sellerId = activeChat.sellerId || '';
+                const reportedId = currentUser.id === activeChat.buyerId ? sellerId : activeChat.buyerId;
+                onReport(activeChat.listingId, reportedId, activeChat.listingTitle);
+              }}
+              className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-red-50 active:scale-95 transition-all"
+              title="Denunciar"
+            >
+              <Flag className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto pb-32 no-scrollbar">

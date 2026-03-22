@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, Phone, MessageCircle, Share2, Heart, Calendar, Info, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Phone, MessageCircle, Share2, Heart, Calendar, Info, CheckCircle2, Flag } from 'lucide-react';
 import { Listing } from '../types';
 import { ContactPolicy } from '../App';
 import { motion } from 'motion/react';
@@ -17,6 +17,7 @@ interface ListingDetailsProps {
   isLoggedIn: boolean;
   onRequireAuth: (action: () => void) => void;
   policy: ContactPolicy;
+  onReport?: () => void;
 }
 
 export function ListingDetails({ 
@@ -28,7 +29,8 @@ export function ListingDetails({
   onCall,
   isLoggedIn,
   onRequireAuth,
-  policy
+  policy,
+  onReport,
 }: ListingDetailsProps) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const speciesIcon = listing.species === 'Vacas' ? '🐄' : listing.species === 'Ovelhas' ? '🐑' : '🐐';
@@ -96,6 +98,15 @@ export function ListingDetails({
           <ChevronLeft className="w-6 h-6" />
         </button>
         <div className="flex items-center gap-3">
+          {onReport && (
+            <button
+              onClick={onReport}
+              className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center active:scale-90 transition-transform text-slate-400 hover:text-red-400 hover:bg-red-50 transition-colors"
+              title="Denunciar anúncio"
+            >
+              <Flag className="w-5 h-5" />
+            </button>
+          )}
           <button className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center active:scale-90 transition-transform">
             <Share2 className="w-5 h-5" />
           </button>
