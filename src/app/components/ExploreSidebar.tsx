@@ -259,7 +259,7 @@ export function ExploreSidebar({
                 index={index + 1}
                 isFavorite={favorites.includes(listing.id)}
                 onToggleFavorite={() => toggleFavorite(listing.id)}
-                onClick={() => handleListingClick(listing)}
+                onClick={() => { handleListingClick(listing); navigateToDetails(listing); }}
                 onChat={() => handleStartChat(listing)}
                 onCall={() => handleCall(listing)}
                 onWhatsApp={() => handleWhatsApp(listing)}
@@ -271,23 +271,6 @@ export function ExploreSidebar({
                 isLoggedIn={isLoggedIn}
                 policy={getContactPolicy(listing)}
               />
-              {selectedListingId === listing.id && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{
-                    opacity: 1,
-                    height: "auto",
-                  }}
-                  className="pt-4"
-                >
-                  <button
-                    onClick={() => navigateToDetails(listing)}
-                    className="w-full h-16 bg-primary text-white rounded-2xl font-black text-xl shadow-lg shadow-primary/20 active:scale-95 transition-transform"
-                  >
-                    Ver Detalhes do Anúncio
-                  </button>
-                </motion.div>
-              )}
             </div>
           ))}
         </div>
