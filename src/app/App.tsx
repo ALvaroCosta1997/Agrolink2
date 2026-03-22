@@ -500,6 +500,8 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       setIsAppLoading(true);
+      // Chats are deferred so we can enrich listingPreview after listing photos are loaded
+      let pendingChats: Chat[] = [];
       try {
         // 1. Check for existing session
         const session = await api.auth.getSession();
@@ -541,7 +543,7 @@ export default function App() {
               api.chats.getAll(),
             ]);
             setFavorites(userFavs);
-            setChats(userChats);
+            pendingChats = userChats; // enriched with listing photos in step 4 below
           } catch (e) {
             console.log("Non-critical: failed to load user data on init", e);
           }
@@ -586,6 +588,18 @@ export default function App() {
         }
 
         setListings(serverListings);
+
+        // 4. Enrich chats with listing photo URLs (now that serverListings has photos merged in)
+        const FALLBACK_PHOTO = 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&q=80&w=800';
+        setChats(pendingChats.map((chat) => {
+          const listing = serverListings.find((l) => l.id === chat.listingId);
+          if (!listing) return chat;
+          return {
+            ...chat,
+            listingPreview: chat.listingPreview || listing.photos[0] || FALLBACK_PHOTO,
+            listingTitle: chat.listingTitle || `${listing.species} — ${listing.breed || 'Lote'}`,
+          };
+        }));
       } catch (err) {
         console.error("Init error, falling back to local data:", err);
         setListings(INITIAL_LISTINGS);
