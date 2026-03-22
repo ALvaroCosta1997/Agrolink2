@@ -161,11 +161,6 @@ export default function App() {
   const [editingListing, setEditingListing] =
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const PRICE_SCALE_BY_SPECIES = {
-    Vacas: { min: 0, max: 8000, step: 50, midpoint: 4000, defaultMin: 600, defaultMax: 3200 },
-    Ovelhas: { min: 0, max: 600, step: 5, midpoint: 300, defaultMin: 80, defaultMax: 250 },
-    Cabras: { min: 0, max: 700, step: 5, midpoint: 350, defaultMin: 80, defaultMax: 250 }
-  };
 
   const [filters, setFilters] = useState({
     species: [] as Species[],
@@ -174,7 +169,7 @@ export default function App() {
     minMales: 0,
     minFemales: 0,
     minPrice: 0,
-    maxPrice: 8000,
+    maxPrice: 999999, // effectively "no upper limit" until user sets one in the modal
     hasPhotos: false,
     minMaleWeight: 0,
     minFemaleWeight: 0,

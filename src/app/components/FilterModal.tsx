@@ -17,9 +17,9 @@ const BREED_OPTIONS = {
 import * as Slider from '@radix-ui/react-slider';
 
 const PRICE_SCALE_BY_SPECIES = {
-  Vacas: { min: 0, max: 8000, step: 50, midpoint: 4000, defaultMin: 600, defaultMax: 3200 },
-  Ovelhas: { min: 0, max: 600, step: 5, midpoint: 300, defaultMin: 80, defaultMax: 250 },
-  Cabras: { min: 0, max: 700, step: 5, midpoint: 350, defaultMin: 80, defaultMax: 250 }
+  Vacas:   { min: 0, max: 50000, step: 500, midpoint: 25000, defaultMin: 600,  defaultMax: 3200 },
+  Ovelhas: { min: 0, max: 50000, step: 100, midpoint: 25000, defaultMin: 80,   defaultMax: 250  },
+  Cabras:  { min: 0, max: 50000, step: 100, midpoint: 25000, defaultMin: 80,   defaultMax: 250  },
 };
 
 interface FilterModalProps {
@@ -297,11 +297,11 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
                     <div className="flex flex-col gap-2">
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mínimo</p>
                       <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 focus-within:border-primary transition-colors">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={formatInput(filters.minPrice)}
                           onChange={(e) => {
-                            const val = Math.min(filters.maxPrice, Math.max(config.min, parseInput(e.target.value)));
+                            const val = Math.max(config.min, parseInput(e.target.value));
                             setFilters((prev: any) => ({ ...prev, minPrice: val }));
                           }}
                           className="w-full bg-transparent font-black text-center text-secondary outline-none"
@@ -312,11 +312,11 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
                     <div className="flex flex-col gap-2">
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Máximo</p>
                       <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 focus-within:border-primary transition-colors">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={formatInput(filters.maxPrice)}
                           onChange={(e) => {
-                            const val = Math.max(filters.minPrice, Math.min(config.max, parseInput(e.target.value)));
+                            const val = Math.max(config.min, parseInput(e.target.value));
                             setFilters((prev: any) => ({ ...prev, maxPrice: val }));
                           }}
                           className="w-full bg-transparent font-black text-center text-secondary outline-none"
@@ -332,7 +332,7 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
                       min={config.min}
                       max={config.max}
                       step={config.step}
-                      value={[filters.minPrice, filters.maxPrice]}
+                      value={[Math.min(filters.minPrice, config.max), Math.min(filters.maxPrice, config.max)]}
                       onValueChange={([min, max]) => {
                         setFilters((prev: any) => ({ ...prev, minPrice: min, maxPrice: max }));
                       }}
