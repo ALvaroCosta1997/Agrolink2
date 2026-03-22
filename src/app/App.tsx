@@ -45,6 +45,9 @@ import { AuthGate } from "./components/AuthGate";
 import { LoginScreen } from "./components/LoginScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { Lock, LogIn, Loader2 } from "lucide-react";
+import { HelpPage } from "./components/HelpPage";
+import { SecurityPage } from "./components/SecurityPage";
+import { TermsPage } from "./components/TermsPage";
 
 import { cn } from "./utils/cn";
 import * as api from "./api";
@@ -162,6 +165,7 @@ export default function App() {
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [favSpeciesFilter, setFavSpeciesFilter] = useState<Species | null>(null);
+  const [profileSubPage, setProfileSubPage] = useState<"ajuda" | "seguranca" | "termos" | null>(null);
 
   const [filters, setFilters] = useState({
     species: [] as Species[],
@@ -1773,17 +1777,18 @@ export default function App() {
 
             {/* Help Section */}
             <div className="flex flex-col gap-3">
-              {[
-                "Ajuda",
-                "Segurança (Evitar burlas)",
-                "Termos e Privacidade",
-              ].map((item, i) => (
+              {([
+                { label: "Ajuda", key: "ajuda" },
+                { label: "Segurança (Evitar burlas)", key: "seguranca" },
+                { label: "Termos e Privacidade", key: "termos" },
+              ] as { label: string; key: "ajuda" | "seguranca" | "termos" }[]).map((item) => (
                 <button
-                  key={i}
+                  key={item.key}
+                  onClick={() => setProfileSubPage(item.key)}
                   className="w-full text-left px-8 py-6 bg-white border-2 border-primary/5 rounded-[32px] flex items-center justify-between hover:border-primary/20 transition-all active:scale-[0.98]"
                 >
                   <span className="text-lg font-black text-secondary">
-                    {item}
+                    {item.label}
                   </span>
                   <ChevronLeft className="w-6 h-6 rotate-180 text-primary/30" />
                 </button>
@@ -2021,6 +2026,24 @@ export default function App() {
             user={currentUser}
             onComplete={handleOnboardingComplete}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {profileSubPage === "ajuda" && (
+          <motion.div key="ajuda" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.2 }}>
+            <HelpPage onBack={() => setProfileSubPage(null)} />
+          </motion.div>
+        )}
+        {profileSubPage === "seguranca" && (
+          <motion.div key="seguranca" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.2 }}>
+            <SecurityPage onBack={() => setProfileSubPage(null)} />
+          </motion.div>
+        )}
+        {profileSubPage === "termos" && (
+          <motion.div key="termos" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.2 }}>
+            <TermsPage onBack={() => setProfileSubPage(null)} />
+          </motion.div>
         )}
       </AnimatePresence>
 
