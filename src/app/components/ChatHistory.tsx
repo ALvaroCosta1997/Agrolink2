@@ -202,6 +202,9 @@ export function ChatHistory({
     );
   }
 
+  const unreadCompra = chats.filter(c => c.buyerId === currentUser.id && c.unread).length;
+  const unreadVenda  = chats.filter(c => c.sellerId === currentUser.id && c.unread).length;
+
   return (
     <div className="flex flex-col h-full bg-white max-w-5xl mx-auto w-full relative">
       <div className="p-8 border-b">
@@ -211,28 +214,7 @@ export function ChatHistory({
             <p className="text-sm font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Negócios e Contactos</p>
           </div>
 
-          {/* Buy/Sell Toggle at Top */}
-          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
-            {[
-              { id: 'compra', label: 'Comprar' },
-              { id: 'venda', label: 'Vender' }
-            ].map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setFilterType(t.id as any)}
-                className={cn(
-                  "flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all",
-                  filterType === t.id 
-                    ? "bg-white text-secondary shadow-sm" 
-                    : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Draft Message Card - Only shown when 'Comprar' is active */}
+          {/* Draft Message Card — shown above the toggle so it's always visible first */}
           <AnimatePresence>
             {filterType === 'compra' && (
               <motion.div 
@@ -292,6 +274,36 @@ export function ChatHistory({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Buy/Sell Toggle — below the auto-message card, above conversations */}
+          <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
+            {[
+              { id: 'compra', label: 'COMPRAR', count: unreadCompra },
+              { id: 'venda',  label: 'VENDER',  count: unreadVenda  },
+            ].map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setFilterType(t.id as any)}
+                className={cn(
+                  "relative flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all",
+                  filterType === t.id
+                    ? "bg-white text-secondary shadow-sm"
+                    : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                {t.label}
+                {t.count > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-2 -right-1 min-w-[20px] h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1.5 leading-none"
+                  >
+                    {t.count}
+                  </motion.span>
+                )}
+              </button>
+            ))}
+          </div>
 
           <div className="flex flex-col gap-4">
             <div className="relative">

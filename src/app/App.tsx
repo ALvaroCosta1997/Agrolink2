@@ -597,6 +597,10 @@ export default function App() {
     init();
   }, []);
 
+  const totalUnreadMessages = currentUser?.isLoggedIn
+    ? chats.filter((c) => c.unread).length
+    : 0;
+
   const filteredListings = useMemo(() => {
     const filtered = listings.filter((l) => {
       const matchSpecies =
@@ -1772,16 +1776,8 @@ export default function App() {
         <nav className="flex items-center gap-1 xl:gap-3 bg-white/50 p-1.5 xl:p-2 rounded-full border border-primary/10 shadow-inner">
           {[
             { id: "explorar", icon: MapIcon, label: "Mapa" },
-            {
-              id: "mensagens",
-              icon: MessageCircle,
-              label: "Mensagens",
-            },
-            {
-              id: "favoritos",
-              icon: Heart,
-              label: "Favoritos",
-            },
+            { id: "mensagens", icon: MessageCircle, label: "Mensagens" },
+            { id: "favoritos", icon: Heart, label: "Favoritos" },
             { id: "perfil", icon: User, label: "Perfil" },
           ].map((item) => (
             <button
@@ -1794,7 +1790,7 @@ export default function App() {
                 }
               }}
               className={cn(
-                "flex items-center gap-2 xl:gap-3 px-4 xl:px-8 py-4 rounded-full text-[11px] xl:text-sm font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                "relative flex items-center gap-2 xl:gap-3 px-4 xl:px-8 py-4 rounded-full text-[11px] xl:text-sm font-black uppercase tracking-widest transition-all whitespace-nowrap",
                 currentView === item.id
                   ? "bg-primary text-white shadow-xl scale-105"
                   : "text-slate-400 hover:text-primary",
@@ -1802,6 +1798,11 @@ export default function App() {
             >
               <item.icon className="w-4 h-4 xl:w-5 xl:h-5" />
               {item.label}
+              {item.id === "mensagens" && totalUnreadMessages > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none">
+                  {totalUnreadMessages}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -1867,11 +1868,7 @@ export default function App() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-primary/10 px-6 py-5 flex justify-between items-center z-[1500]">
         {[
           { id: "explorar", icon: MapIcon, label: "Mapa" },
-          {
-            id: "mensagens",
-            icon: MessageCircle,
-            label: "Mensagens",
-          },
+          { id: "mensagens", icon: MessageCircle, label: "Mensagens" },
           { id: "favoritos", icon: Heart, label: "Favoritos" },
           { id: "perfil", icon: User, label: "Perfil" },
         ].map((item) => (
@@ -1891,14 +1888,19 @@ export default function App() {
                 : "text-slate-400",
             )}
           >
-            <item.icon
-              className={cn(
-                "w-8 h-8",
-                currentView === item.id
-                  ? "stroke-[3px]"
-                  : "stroke-2",
+            <div className="relative">
+              <item.icon
+                className={cn(
+                  "w-8 h-8",
+                  currentView === item.id ? "stroke-[3px]" : "stroke-2",
+                )}
+              />
+              {item.id === "mensagens" && totalUnreadMessages > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 leading-none">
+                  {totalUnreadMessages}
+                </span>
               )}
-            />
+            </div>
             <span className="text-[11px] font-black uppercase tracking-widest">
               {item.label}
             </span>
