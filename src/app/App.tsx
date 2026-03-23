@@ -49,6 +49,7 @@ import { HelpPage } from "./components/HelpPage";
 import { SecurityPage } from "./components/SecurityPage";
 import { TermsPage } from "./components/TermsPage";
 import { ReportModal } from "./components/ReportModal";
+import { AdminReportsPage } from "./components/AdminReportsPage";
 
 import { cn } from "./utils/cn";
 import * as api from "./api";
@@ -166,7 +167,10 @@ export default function App() {
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [favSpeciesFilter, setFavSpeciesFilter] = useState<Species | null>(null);
-  const [profileSubPage, setProfileSubPage] = useState<"ajuda" | "seguranca" | "termos" | null>(null);
+  const [profileSubPage, setProfileSubPage] = useState<"ajuda" | "seguranca" | "termos" | "admin" | null>(null);
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+
+  const ADMIN_EMAIL = "av.pereiradacosta@gmail.com";
   const [reportTarget, setReportTarget] = useState<{
     listingId?: string;
     listingTitle?: string;
@@ -174,7 +178,28 @@ export default function App() {
   } | null>(null);
 
   const handleOpenReport = (listingId?: string, reportedUserId?: string, listingTitle?: string) => {
-    requireAuth(() => setReportTarget({ listingId, reportedUserId, listingTitle }));
+    requireAuth(async () => {
+      const user = currentUserRef.current;
+      if (!user || !listingId) {
+        setReportTarget({ listingId, reportedUserId, listingTitle });
+        return;
+      }
+      try {
+        const { data } = await api.supabase
+          .from("reports")
+          .select("id")
+          .eq("reporter_id", user.id)
+          .eq("listing_id", listingId)
+          .maybeSingle();
+        if (data) {
+          toast.info("Já denunciou este anúncio. Estamos a analisar.");
+          return;
+        }
+      } catch {
+        // If the check fails, still allow the modal to open
+      }
+      setReportTarget({ listingId, reportedUserId, listingTitle });
+    });
   };
 
   const [filters, setFilters] = useState({
@@ -677,6 +702,16 @@ export default function App() {
   const totalUnreadMessages = currentUser?.isLoggedIn
     ? chats.filter((c) => c.unread).length
     : 0;
+
+  // Fetch pending reports count for admin badge
+  useEffect(() => {
+    if (currentUser?.email !== ADMIN_EMAIL) return;
+    api.supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .then(({ count }) => setPendingReportsCount(count ?? 0));
+  }, [currentUser?.email]);
 
   const filteredListings = useMemo(() => {
     const filtered = listings.filter((l) => {
@@ -1857,6 +1892,22 @@ export default function App() {
                   <ChevronLeft className="w-6 h-6 rotate-180 text-primary/30" />
                 </button>
               ))}
+              {currentUser?.email === ADMIN_EMAIL && (
+                <button
+                  onClick={() => setProfileSubPage("admin")}
+                  className="w-full text-left px-8 py-6 bg-red-50 border-2 border-red-200 rounded-[32px] flex items-center justify-between hover:border-red-300 transition-all active:scale-[0.98]"
+                >
+                  <span className="text-lg font-black text-red-700">⚙️ ADMIN — Denúncias</span>
+                  <div className="flex items-center gap-3">
+                    {pendingReportsCount > 0 && (
+                      <span className="min-w-[28px] h-7 bg-red-500 text-white text-sm font-black rounded-full flex items-center justify-center px-2">
+                        {pendingReportsCount}
+                      </span>
+                    )}
+                    <ChevronLeft className="w-6 h-6 rotate-180 text-red-300" />
+                  </div>
+                </button>
+              )}
               {currentUser?.isLoggedIn && (
                 <button
                   onClick={handleLogout}
@@ -2107,6 +2158,11 @@ export default function App() {
         {profileSubPage === "termos" && (
           <motion.div key="termos" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.2 }}>
             <TermsPage onBack={() => setProfileSubPage(null)} />
+          </motion.div>
+        )}
+        {profileSubPage === "admin" && currentUser?.email === ADMIN_EMAIL && (
+          <motion.div key="admin" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.2 }}>
+            <AdminReportsPage onBack={() => { setProfileSubPage(null); setPendingReportsCount(0); api.supabase.from("reports").select("id", { count: "exact", head: true }).eq("status", "pending").then(({ count }) => setPendingReportsCount(count ?? 0)); }} />
           </motion.div>
         )}
       </AnimatePresence>

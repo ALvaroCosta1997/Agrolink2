@@ -49,15 +49,31 @@ export function ReportModal({
     }
     setSubmitting(true);
     try {
-      const { error } = await api.supabase.from("reports").insert({
+      const { data, error } = await api.supabase.from("reports").insert({
         reporter_id: currentUserId,
         listing_id: listingId || null,
         reported_user_id: reportedUserId || null,
         reason: selectedReason,
         details: details.trim() || null,
         status: "pending",
+      }).select("id").single();
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("Já denunciou este anúncio anteriormente.");
+        } else {
+          throw error;
+        }
+        return;
+      }
+      // Log for Vercel runtime monitoring
+      console.warn("[REPORT SUBMITTED]", {
+        reportId: data?.id,
+        listingId,
+        reportedUserId,
+        reason: selectedReason,
+        details: details.trim() || null,
+        timestamp: new Date().toISOString(),
       });
-      if (error) throw error;
       toast.success("Denúncia enviada com sucesso. Vamos analisar o mais brevemente possível.");
       handleClose();
     } catch (e) {
