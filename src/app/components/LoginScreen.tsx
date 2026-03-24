@@ -14,10 +14,11 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot' | 'confirm'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forgotSent, setForgotSent] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,13 +28,16 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
 
     try {
       if (mode === 'signup') {
-        // 1. Create user on server (Supabase Auth + KV profile)
-        await auth.signup(email, password, name || undefined);
-        // 2. Sign in to get session
-        const data = await auth.login(email, password);
-        onLoginSuccess(email, data.user.id, data.session.access_token);
+        const { needsConfirmation } = await auth.signup(email, password, name || undefined);
+        if (needsConfirmation) {
+          // Email confirmation required — show confirmation screen
+          setMode('confirm');
+        } else {
+          // Email already confirmed (e.g. Supabase confirmations disabled) — sign in directly
+          const data = await auth.login(email, password);
+          onLoginSuccess(email, data.user.id, data.session.access_token);
+        }
       } else {
-        // Sign in directly
         const data = await auth.login(email, password);
         onLoginSuccess(email, data.user.id, data.session.access_token);
       }
@@ -64,12 +68,30 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
     }
   };
 
+  const handleResend = async () => {
+    if (!email || isResending) return;
+    setIsResending(true);
+    try {
+      const { error: resendError } = await supabase.auth.resend({ type: 'signup', email });
+      if (resendError) throw resendError;
+      toast.success('Email reenviado! Verifique a sua caixa de correio.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao reenviar email.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[7000] bg-white flex flex-col overflow-y-auto">
       {/* Header */}
       <header className="px-6 py-6 flex items-center justify-between sticky top-0 bg-white z-10">
         <button
-          onClick={mode === 'forgot' ? () => { setMode('login'); setError(null); setForgotSent(false); } : onBack}
+          onClick={
+            mode === 'forgot' ? () => { setMode('login'); setError(null); setForgotSent(false); }
+            : mode === 'confirm' ? () => { setMode('signup'); setError(null); }
+            : onBack
+          }
           className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 active:scale-90 transition-transform shadow-sm border border-slate-100"
         >
           <ChevronLeft className="w-6 h-6" strokeWidth={3} />
@@ -80,8 +102,43 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
 
       <main className="flex-1 max-w-md mx-auto w-full px-6 flex flex-col justify-center py-12">
 
-        {/* ── FORGOT PASSWORD VIEW ── */}
-        {mode === 'forgot' ? (
+        {/* ── EMAIL CONFIRMATION VIEW ── */}
+        {mode === 'confirm' ? (
+          <div className="flex flex-col items-center text-center gap-6">
+            <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center">
+              <Mail className="w-10 h-10 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-secondary mb-3">Verifique o seu email!</h1>
+              <p className="text-sm font-bold text-slate-500 leading-relaxed">
+                Enviámos um link de confirmação para
+              </p>
+              <p className="text-sm font-black text-primary mt-1 break-all">{email}</p>
+              <p className="text-sm font-bold text-slate-500 leading-relaxed mt-2">
+                Clique no link para ativar a sua conta. Pode fechar esta janela.
+              </p>
+            </div>
+
+            <div className="w-full p-4 bg-amber-50 border-2 border-amber-100 rounded-2xl text-amber-700 text-xs font-bold leading-relaxed text-left">
+              Não recebeu o email? Verifique a pasta de spam ou reenvie abaixo.
+            </div>
+
+            <button
+              onClick={handleResend}
+              disabled={isResending}
+              className="w-full h-14 bg-slate-100 text-secondary rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all"
+            >
+              {isResending ? <RefreshCw className="w-5 h-5 animate-spin" /> : <><RefreshCw className="w-4 h-4" /> Reenviar email</>}
+            </button>
+
+            <button
+              onClick={() => { setMode('login'); setError(null); }}
+              className="text-sm font-black text-primary underline underline-offset-2 hover:no-underline"
+            >
+              Voltar ao login
+            </button>
+          </div>
+        ) : mode === 'forgot' ? (
           <>
             <div className="mb-10 text-center">
               <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">

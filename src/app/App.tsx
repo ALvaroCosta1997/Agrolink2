@@ -766,11 +766,17 @@ export default function App() {
     init();
   }, []);
 
-  // Listen for PASSWORD_RECOVERY event (user clicked reset link in email)
+  // Listen for auth events:
+  // - PASSWORD_RECOVERY: user clicked reset-password link
+  // - SIGNED_IN: user clicked email-confirmation link (returns to app with session in URL fragment)
   useEffect(() => {
-    const { data: { subscription } } = api.supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = api.supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         setIsPasswordRecovery(true);
+        setIsLoginVisible(false);
+      } else if (event === "SIGNED_IN" && session && !currentUserRef.current?.isLoggedIn) {
+        // User just confirmed their email and was redirected back — log them in
+        handleLoginSuccess(session.user.email ?? "", session.user.id, session.access_token);
         setIsLoginVisible(false);
       }
     });

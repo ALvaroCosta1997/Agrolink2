@@ -53,15 +53,21 @@ const handleResponse = async (res: Response) => {
 // ══════════════════════════════════════════════════════════════════
 export const auth = {
   /**
-   * Sign up a new user (creates Supabase Auth user + KV profile).
+   * Sign up a new user via standard client-side Supabase Auth.
+   * Returns { user, needsConfirmation } — if needsConfirmation is true,
+   * the user must click the confirmation email before they can log in.
    */
   async signup(email: string, password: string, name?: string) {
-    const res = await fetch(`${API_BASE}/auth/signup`, {
-      method: "POST",
-      headers: await headers(),
-      body: JSON.stringify({ email, password, name }),
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name: name || email.split("@")[0] },
+      },
     });
-    return handleResponse(res);
+    if (error) throw new Error(`Erro ao criar conta: ${error.message}`);
+    const needsConfirmation = !data.user?.email_confirmed_at;
+    return { user: data.user, needsConfirmation };
   },
 
   /**
