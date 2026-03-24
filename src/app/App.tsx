@@ -166,6 +166,15 @@ export default function App() {
   const [editingListing, setEditingListing] =
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showCookieBanner, setShowCookieBanner] = useState(() =>
+    !document.cookie.split(";").some((c) => c.trim().startsWith("agrolink_consent="))
+  );
+
+  const handleCookieConsent = (accepted: boolean) => {
+    const value = accepted ? "accepted" : "rejected";
+    document.cookie = `agrolink_consent=${value}; path=/; max-age=31536000; SameSite=Lax`;
+    setShowCookieBanner(false);
+  };
   const [favSpeciesFilter, setFavSpeciesFilter] = useState<Species | null>(null);
   const [profileSubPage, setProfileSubPage] = useState<"ajuda" | "seguranca" | "termos" | "admin" | null>(null);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
@@ -2166,6 +2175,39 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showCookieBanner && (
+        <div className="fixed bottom-0 left-0 right-0 z-[3500] p-4 md:p-6">
+          <div className="max-w-2xl mx-auto bg-white border-2 border-slate-100 rounded-t-3xl md:rounded-3xl shadow-2xl p-6 flex flex-col gap-4">
+            <div>
+              <h3 className="font-black text-secondary text-lg leading-none mb-2">🍪 Cookies</h3>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                Este site utiliza cookies essenciais para o funcionamento da plataforma e cookies de análise (Vercel Web Analytics) para melhorar a experiência.{" "}
+                <button
+                  onClick={() => { handleCookieConsent(true); setProfileSubPage("seguranca"); setCurrentView("perfil"); }}
+                  className="text-primary font-black underline underline-offset-2 hover:no-underline"
+                >
+                  Ver Política de Privacidade
+                </button>
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleCookieConsent(false)}
+                className="flex-1 h-12 rounded-2xl border-2 border-slate-200 font-black text-slate-500 text-sm uppercase tracking-widest active:scale-95 transition-transform hover:border-slate-300"
+              >
+                Recusar não essenciais
+              </button>
+              <button
+                onClick={() => handleCookieConsent(true)}
+                className="flex-1 h-12 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 active:scale-95 transition-all"
+              >
+                Aceitar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {currentUser?.isLoggedIn && (
         <ReportModal
