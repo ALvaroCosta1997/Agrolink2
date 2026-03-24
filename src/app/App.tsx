@@ -6,6 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import { Toaster, toast } from "sonner";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import {
   Heart,
   PlusCircle,
@@ -2380,6 +2381,7 @@ export default function App() {
       )}
 
       <Toaster position="top-center" richColors />
+      <SpeedInsights />
     </div>
   );
 }
