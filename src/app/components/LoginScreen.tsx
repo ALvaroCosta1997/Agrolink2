@@ -105,6 +105,7 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
                 <CheckCircle2 className="w-10 h-10 text-green-500" />
                 <p className="font-black text-secondary">Email enviado!</p>
                 <p className="text-sm font-bold text-slate-500">Verifique a sua caixa de correio e clique no link para redefinir a palavra-passe.</p>
+                <p className="text-xs text-slate-400 text-center mt-2">Se o email introduzido não estiver associado a uma conta AgroLink, não receberá nenhum email de recuperação.</p>
               </div>
             ) : (
               <form onSubmit={handleForgot} className="flex flex-col gap-4">
