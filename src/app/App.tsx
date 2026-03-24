@@ -45,6 +45,7 @@ import { AuthGate } from "./components/AuthGate";
 import { LoginScreen } from "./components/LoginScreen";
 import { OnboardingScreen } from "./components/OnboardingScreen";
 import { Lock, LogIn, Loader2 } from "lucide-react";
+import { ResetPasswordScreen } from "./components/ResetPasswordScreen";
 import { HelpPage } from "./components/HelpPage";
 import { SecurityPage } from "./components/SecurityPage";
 import { TermsPage } from "./components/TermsPage";
@@ -277,6 +278,7 @@ export default function App() {
   const [isLoginVisible, setIsLoginVisible] = useState(false);
   const [isAuthGateVisible, setIsAuthGateVisible] = useState(false);
   const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const requireAuth = (action: () => void) => {
@@ -706,6 +708,17 @@ export default function App() {
     };
 
     init();
+  }, []);
+
+  // Listen for PASSWORD_RECOVERY event (user clicked reset link in email)
+  useEffect(() => {
+    const { data: { subscription } } = api.supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(true);
+        setIsLoginVisible(false);
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   const totalUnreadMessages = currentUser?.isLoggedIn
@@ -2145,10 +2158,18 @@ export default function App() {
 
       <AnimatePresence>
         {isLoginVisible && (
-          <LoginScreen 
+          <LoginScreen
             onBack={() => setIsLoginVisible(false)}
             onLoginSuccess={handleLoginSuccess}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isPasswordRecovery && (
+          <motion.div key="reset-pw" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <ResetPasswordScreen onDone={() => { setIsPasswordRecovery(false); setIsLoginVisible(true); }} />
+          </motion.div>
         )}
       </AnimatePresence>
 
