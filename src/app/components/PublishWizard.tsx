@@ -103,8 +103,32 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
   const totalSteps = 7;
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const compressImage = (file: File, maxWidth = 1200, quality = 0.7): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Canvas not available")); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          (blob) => blob ? resolve(blob) : reject(new Error("toBlob failed")),
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Image load failed")); };
+      img.src = objectUrl;
+    });
 
   const buildInitialFormData = () => {
     if (initialData) {
@@ -333,13 +357,23 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    setIsUploading(true);
+    setIsCompressing(true);
     const uploadedUrls: string[] = [];
     for (const file of files) {
-      const path = `${currentUser?.id || 'anon'}/${Date.now()}-${file.name}`;
+      let uploadBlob: Blob = file;
+      let baseName = file.name.replace(/\.[^.]+$/, "");
+      try {
+        uploadBlob = await compressImage(file);
+      } catch (err) {
+        console.warn("Compression failed, using original:", err);
+        baseName = file.name.replace(/\.[^.]+$/, "");
+      }
+      setIsCompressing(false);
+      setIsUploading(true);
+      const path = `${currentUser?.id || 'anon'}/${Date.now()}-${baseName}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('listing-photos')
-        .upload(path, file);
+        .upload(path, uploadBlob, { contentType: 'image/jpeg' });
       if (!uploadError) {
         const { data } = supabase.storage.from('listing-photos').getPublicUrl(path);
         uploadedUrls.push(data.publicUrl);
@@ -665,16 +699,16 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
+                  disabled={isUploading || isCompressing}
                   className="aspect-square bg-slate-50 border-4 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:text-primary hover:border-primary/50 transition-colors disabled:opacity-50"
                 >
-                  {isUploading ? (
+                  {(isUploading || isCompressing) ? (
                     <Loader2 className="w-10 h-10 animate-spin" />
                   ) : (
                     <Camera className="w-10 h-10" />
                   )}
                   <span className="font-black text-xs uppercase">
-                    {isUploading ? 'A carregar...' : 'Adicionar'}
+                    {isCompressing ? 'A comprimir...' : isUploading ? 'A carregar...' : 'Adicionar'}
                   </span>
                 </button>
                 {formData.photos.map((p, i) => (
