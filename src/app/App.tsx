@@ -1901,6 +1901,14 @@ export default function App() {
                   <ChevronLeft className="w-6 h-6 rotate-180 text-primary/30" />
                 </button>
               ))}
+              <button
+                onClick={() => window.open("https://www.livroreclamacoes.pt", "_blank")}
+                className="w-full text-left px-8 py-6 bg-white border-2 border-primary/5 rounded-[32px] flex items-center justify-between hover:border-primary/20 transition-all active:scale-[0.98]"
+              >
+                <span className="text-lg font-black text-secondary">📕 Livro de Reclamações</span>
+                <ChevronLeft className="w-6 h-6 rotate-180 text-primary/30" />
+              </button>
+
               {currentUser?.email === ADMIN_EMAIL && (
                 <button
                   onClick={() => setProfileSubPage("admin")}

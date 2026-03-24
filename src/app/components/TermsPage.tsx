@@ -95,8 +95,17 @@ function TermsContent() {
       </Section>
 
       <Section number={8} title="Resolução de Litígios">
-        <p>Para litígios relacionados com a plataforma, os utilizadores podem recorrer à plataforma europeia de resolução de litígios:</p>
-        <p className="mt-2 font-black text-primary">https://ec.europa.eu/consumers/odr</p>
+        <p>Para litígios relacionados com a plataforma, os utilizadores podem recorrer a:</p>
+        <ul className="flex flex-col gap-0 mt-2">
+          <Bullet>
+            <span>Livro de Reclamações Eletrónico: </span>
+            <a href="https://www.livroreclamacoes.pt" target="_blank" rel="noopener noreferrer" className="text-primary font-black underline underline-offset-2 hover:no-underline">www.livroreclamacoes.pt</a>
+          </Bullet>
+          <Bullet>
+            <span>Plataforma de Resolução de Litígios da UE: </span>
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer" className="text-primary font-black underline underline-offset-2 hover:no-underline break-all">https://ec.europa.eu/consumers/odr</a>
+          </Bullet>
+        </ul>
       </Section>
 
       <Section number={9} title="Legislação Aplicável">
