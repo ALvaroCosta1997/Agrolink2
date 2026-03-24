@@ -279,6 +279,62 @@ export default function App() {
   const [isAuthGateVisible, setIsAuthGateVisible] = useState(false);
   const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (!currentUser || deleteConfirmText !== "ELIMINAR") return;
+    setIsDeletingAccount(true);
+    try {
+      const userId = currentUser.id;
+
+      // a. Delete listing_photos for user's listings
+      const { data: userListings } = await api.supabase
+        .from("listings").select("id").eq("seller_id", userId);
+      if (userListings && userListings.length > 0) {
+        const ids = userListings.map((l: any) => l.id);
+        await api.supabase.from("listing_photos").delete().in("listing_id", ids);
+      }
+
+      // b. Delete listings
+      await api.supabase.from("listings").delete().eq("seller_id", userId);
+
+      // c. Delete chat_messages
+      await api.supabase.from("chat_messages").delete().eq("sender_id", userId);
+
+      // d. Delete chats (buyer or seller)
+      await api.supabase.from("chats").delete().eq("buyer_id", userId);
+      await api.supabase.from("chats").delete().eq("seller_id", userId);
+
+      // e. Delete favorites
+      await api.supabase.from("favorites").delete().eq("user_id", userId);
+
+      // f. Delete reports
+      await api.supabase.from("reports").delete().eq("reporter_id", userId);
+
+      // g. Delete profile
+      await api.supabase.from("profiles").delete().eq("id", userId);
+
+      // h. Sign out (full auth deletion requires service_role — handled manually)
+      await api.auth.logout();
+
+      setCurrentUser(null);
+      setFavorites([]);
+      setChats([]);
+      setListings((prev) => prev.filter((l) => l.sellerId !== userId));
+      setCurrentView("explorar");
+      setShowDeleteModal(false);
+      toast.success("Conta eliminada com sucesso.");
+      toast.info("Para completar a remoção do registo de autenticação, contacte av.pereiradacosta@gmail.com.", { duration: 8000 });
+    } catch (err) {
+      console.error("Delete account error:", err);
+      toast.error("Erro ao eliminar conta. Tente novamente ou contacte o suporte.");
+    } finally {
+      setIsDeletingAccount(false);
+      setDeleteConfirmText("");
+    }
+  };
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   const requireAuth = (action: () => void) => {
@@ -1946,6 +2002,20 @@ export default function App() {
                   Terminar Sessão
                 </button>
               )}
+              {currentUser?.isLoggedIn && (
+                <div className="mt-6 border-2 border-red-200 bg-red-50 rounded-3xl p-6">
+                  <p className="text-xs font-black text-red-400 uppercase tracking-widest mb-1">⚠️ Zona de Perigo</p>
+                  <p className="text-sm font-bold text-red-700 mb-4 leading-relaxed">
+                    Eliminar a conta apaga permanentemente todos os seus anúncios, mensagens e dados. Esta ação é irreversível.
+                  </p>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="w-full h-12 bg-red-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-transform shadow-lg shadow-red-200"
+                  >
+                    Eliminar a Minha Conta
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -2237,6 +2307,61 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[8000] bg-black/60 backdrop-blur-sm flex items-center justify-center px-6"
+            onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <h2 className="text-2xl font-black text-secondary text-center mb-3">Tem a certeza?</h2>
+              <p className="text-sm font-bold text-slate-500 text-center leading-relaxed mb-6">
+                Esta ação é <span className="text-red-500">permanente e irreversível</span>. Todos os seus anúncios, mensagens e favoritos serão eliminados.
+              </p>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+                Escreva <span className="text-red-500">ELIMINAR</span> para confirmar
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="ELIMINAR"
+                className="w-full h-14 bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 font-black text-secondary focus:border-red-400 focus:outline-none transition-all mb-4 text-center tracking-widest"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
+                  className="flex-1 h-14 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-transform"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== "ELIMINAR" || isDeletingAccount}
+                  className="flex-1 h-14 bg-red-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2"
+                >
+                  {isDeletingAccount ? (
+                    <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                  ) : "Eliminar"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {currentUser?.isLoggedIn && (
         <ReportModal
