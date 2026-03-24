@@ -326,7 +326,6 @@ export default function App() {
       setCurrentView("explorar");
       setShowDeleteModal(false);
       toast.success("Conta eliminada com sucesso.");
-      toast.info("Para completar a remoção do registo de autenticação, contacte av.pereiradacosta@gmail.com.", { duration: 8000 });
     } catch (err) {
       console.error("Delete account error:", err);
       toast.error("Erro ao eliminar conta. Tente novamente ou contacte o suporte.");
