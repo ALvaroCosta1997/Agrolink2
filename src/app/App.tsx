@@ -29,7 +29,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { Resizable } from "re-resizable";
 import L from "leaflet";
 import { Listing, Species, Sex } from "./types";
-import { INITIAL_LISTINGS } from "./mockData";
 import { ListingCard } from "./components/ListingCard";
 import { MapView } from "./components/MapView";
 import { ExploreSidebar } from "./components/ExploreSidebar";
@@ -108,10 +107,7 @@ const getContactPolicy = (listing: Listing, currentUser: UserType | null): Conta
     endTime: '19:00'
   };
 
-  const isOwner = currentUser && (
-    listing.sellerId === currentUser.id || 
-    listing.id.startsWith("generated-1")
-  );
+  const isOwner = currentUser && listing.sellerId === currentUser.id;
 
   const visibility = isOwner && currentUser 
     ? (currentUser.contactVisibility || defaultVisibility)
@@ -706,19 +702,6 @@ export default function App() {
         // 2. Fetch listings from backend
         let serverListings = await api.listings.getAll();
 
-        if (serverListings.length === 0) {
-          // In relational mode, try seed endpoint once then re-fetch real DB listings.
-          // Avoid falling back to local demo listings because they contain non-UUID ids
-          // that break chat and favorites persistence against Postgres.
-          console.log("No listings found, trying server seed...");
-          try {
-            await api.seed.run(INITIAL_LISTINGS);
-            serverListings = await api.listings.getAll();
-          } catch (e) {
-            console.log("Seed failed, keeping DB listings only:", e);
-          }
-        }
-
         // 3. Merge photos from listing_photos table (photos column doesn't exist on listings table)
         const STORAGE_BASE = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
         try {
@@ -755,8 +738,8 @@ export default function App() {
           };
         }));
       } catch (err) {
-        console.error("Init error, falling back to local data:", err);
-        setListings(INITIAL_LISTINGS);
+        console.error("Init error:", err);
+        setListings([]);
       } finally {
         setIsAppLoading(false);
       }
@@ -1087,6 +1070,8 @@ export default function App() {
                     isLoggedIn={!!currentUser}
                     getContactPolicy={(l) => getContactPolicy(l, currentUser)}
                     onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
+                    allListingsCount={listings.length}
+                    onPublish={() => { requireAuth(() => setCurrentView("publicar")); }}
                   />
                 </div>
               </Resizable>
@@ -1357,9 +1342,7 @@ export default function App() {
         );
       case "meus-anuncios":
         const myAds = listings.filter(
-          (l) =>
-            l.sellerId === (currentUser?.id || "none") ||
-            l.id.startsWith("generated-1"),
+          (l) => l.sellerId === (currentUser?.id || "none"),
         );
         
         const visibility = currentUser?.contactVisibility || {
@@ -1706,9 +1689,7 @@ export default function App() {
         ) : null;
       case "perfil":
         const myAdsCount = listings.filter(
-          (l) =>
-            l.sellerId === (currentUser?.id || "none") ||
-            l.id.startsWith("generated-1"), // Mock for guest
+          (l) => l.sellerId === (currentUser?.id || "none"),
         ).length;
 
         return (

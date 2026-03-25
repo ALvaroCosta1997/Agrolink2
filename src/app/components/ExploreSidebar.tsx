@@ -33,6 +33,8 @@ interface ExploreSidebarProps {
   isLoggedIn?: boolean;
   getContactPolicy: (listing: Listing) => ContactPolicy;
   onReport?: (listing: Listing) => void;
+  allListingsCount?: number;
+  onPublish?: () => void;
 }
 
 export function ExploreSidebar({
@@ -62,6 +64,8 @@ export function ExploreSidebar({
   isLoggedIn,
   getContactPolicy,
   onReport,
+  allListingsCount = 0,
+  onPublish,
 }: ExploreSidebarProps) {
   return (
     <>
@@ -218,35 +222,55 @@ export function ExploreSidebar({
       </div>
 
       {filteredListings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
-          <AlertCircle className="w-16 h-16 mb-4 opacity-20" />
-          <p className="font-black text-xl text-secondary">
-            Nada encontrado
-          </p>
-          <p className="text-sm font-medium">
-            Tente mudar os filtros ou a zona desenhada.
-          </p>
-          <button
-            onClick={() => {
-              setFilters({
-                species: [],
-                breeds: [],
-                lifeStages: [],
-                minMales: 0,
-                minFemales: 0,
-                minPrice: 0,
-                maxPrice: 8000,
-                hasPhotos: false,
-                minMaleWeight: 0,
-                minFemaleWeight: 0,
-              });
-              setActivePolygon(null);
-            }}
-            className="mt-6 text-primary font-black text-lg underline underline-offset-4"
-          >
-            Limpar Tudo
-          </button>
-        </div>
+        allListingsCount === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+            <span className="text-6xl mb-6">🌾</span>
+            <p className="font-black text-2xl text-secondary mb-3">
+              Sem anúncios disponíveis
+            </p>
+            <p className="text-sm font-bold text-slate-500 mb-8">
+              Seja o primeiro a publicar um anúncio no AgroLink!
+            </p>
+            {onPublish && (
+              <button
+                onClick={onPublish}
+                className="h-14 px-8 bg-primary text-white rounded-3xl font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 active:scale-95 transition-transform"
+              >
+                Publicar Anúncio
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400">
+            <AlertCircle className="w-16 h-16 mb-4 opacity-20" />
+            <p className="font-black text-xl text-secondary">
+              Nada encontrado
+            </p>
+            <p className="text-sm font-medium">
+              Tente mudar os filtros ou a zona desenhada.
+            </p>
+            <button
+              onClick={() => {
+                setFilters({
+                  species: [],
+                  breeds: [],
+                  lifeStages: [],
+                  minMales: 0,
+                  minFemales: 0,
+                  minPrice: 0,
+                  maxPrice: 8000,
+                  hasPhotos: false,
+                  minMaleWeight: 0,
+                  minFemaleWeight: 0,
+                });
+                setActivePolygon(null);
+              }}
+              className="mt-6 text-primary font-black text-lg underline underline-offset-4"
+            >
+              Limpar Tudo
+            </button>
+          </div>
+        )
       ) : (
         <div className="grid gap-6">
           {filteredListings.map((listing, index) => (
