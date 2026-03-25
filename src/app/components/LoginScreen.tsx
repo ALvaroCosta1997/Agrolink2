@@ -177,6 +177,7 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
                     placeholder="O teu email"
                     required
                     autoFocus
+                    autoComplete="email"
                     className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-[24px] pl-14 pr-6 font-bold text-secondary focus:border-primary focus:bg-white focus:outline-none transition-all"
                   />
                 </div>
@@ -245,6 +246,7 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="O teu nome"
+                    autoComplete="name"
                     className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-[24px] pl-14 pr-6 font-bold text-secondary focus:border-primary focus:bg-white focus:outline-none transition-all"
                   />
                 </div>
@@ -260,6 +262,7 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="O teu email"
                   required
+                  autoComplete="email"
                   className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-[24px] pl-14 pr-6 font-bold text-secondary focus:border-primary focus:bg-white focus:outline-none transition-all"
                 />
               </div>
@@ -275,6 +278,7 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
                   placeholder="Password (mín. 6 caracteres)"
                   required
                   minLength={6}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-[24px] pl-14 pr-14 font-bold text-secondary focus:border-primary focus:bg-white focus:outline-none transition-all"
                 />
                 <button

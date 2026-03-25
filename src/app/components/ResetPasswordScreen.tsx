@@ -77,6 +77,7 @@ export function ResetPasswordScreen({ onDone }: ResetPasswordScreenProps) {
               required
               minLength={6}
               autoFocus
+              autoComplete="new-password"
               className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-[24px] pl-14 pr-14 font-bold text-secondary focus:border-primary focus:bg-white focus:outline-none transition-all"
             />
             <button
@@ -100,6 +101,7 @@ export function ResetPasswordScreen({ onDone }: ResetPasswordScreenProps) {
               placeholder="Confirmar palavra-passe"
               required
               minLength={6}
+              autoComplete="new-password"
               className="w-full h-16 bg-slate-50 border-2 border-slate-50 rounded-[24px] pl-14 pr-6 font-bold text-secondary focus:border-primary focus:bg-white focus:outline-none transition-all"
             />
           </div>
