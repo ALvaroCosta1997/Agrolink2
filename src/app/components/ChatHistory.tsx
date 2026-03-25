@@ -194,7 +194,7 @@ export function ChatHistory({
           </div>
         </div>
 
-        <div className="p-4 bg-white border-t fixed bottom-0 left-0 right-0 md:relative">
+        <div className="p-4 bg-white border-t fixed bottom-0 left-0 right-0 md:relative" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           <div className="relative flex items-center gap-2 max-w-4xl mx-auto w-full">
             <input 
               type="text" 

@@ -108,7 +108,7 @@ export function ReportModal({
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="fixed bottom-0 left-0 right-0 z-[3001] sm:inset-0 sm:flex sm:items-center sm:justify-center sm:p-6 pointer-events-none"
           >
-            <div className="pointer-events-auto w-full sm:max-w-lg bg-white rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden">
+            <div className="pointer-events-auto w-full sm:max-w-lg bg-white rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
               {/* Handle bar (mobile) */}
               <div className="flex justify-center pt-4 pb-0 sm:hidden">
                 <div className="w-10 h-1 bg-slate-200 rounded-full" />

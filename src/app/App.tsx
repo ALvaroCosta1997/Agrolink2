@@ -2141,7 +2141,7 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-primary/10 px-6 py-5 flex justify-between items-center z-[1500]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-primary/10 px-6 flex justify-between items-center z-[1500]" style={{ paddingTop: '1.25rem', paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}>
         {[
           { id: "explorar", icon: MapIcon, label: "Mapa" },
           { id: "mensagens", icon: MessageCircle, label: "Mensagens" },
@@ -2262,7 +2262,7 @@ export default function App() {
       </AnimatePresence>
 
       {showCookieBanner && (
-        <div className="fixed bottom-0 left-0 right-0 z-[3500] p-4 md:p-6">
+        <div className="fixed bottom-0 left-0 right-0 z-[3500] p-4 md:p-6" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="max-w-2xl mx-auto bg-white border-2 border-slate-100 rounded-t-3xl md:rounded-3xl shadow-2xl p-6 flex flex-col gap-4">
             <div>
               <h3 className="font-black text-secondary text-lg leading-none mb-2">🍪 Cookies</h3>
