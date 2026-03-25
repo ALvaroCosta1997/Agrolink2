@@ -210,17 +210,17 @@ export function ListingCard({
                 )}
               >
                 <MessageSquare className={cn("w-2.5 h-2.5 @sm:w-3.5 @sm:h-3.5", !policy.showDirectContact ? "w-4 h-4" : "")} strokeWidth={3} />
-                <span className={cn("text-[6px] @sm:text-[8px] font-black uppercase", !policy.showDirectContact ? "text-[10px]" : "")}>
+                <span className={cn("text-[8px] @sm:text-[10px] font-black uppercase", !policy.showDirectContact ? "text-[10px]" : "")}>
                   {policy.showDirectContact ? "Chat" : "Enviar Mensagem"}
                 </span>
               </button>
               
               {!policy.showDirectContact && (
                 <div className="flex flex-col items-center justify-center">
-                  <span className="text-[7px] @sm:text-[9px] font-black text-orange-500 uppercase tracking-tighter leading-none italic animate-pulse">
+                  <span className="text-[9px] @sm:text-[11px] font-black text-orange-500 uppercase tracking-tighter leading-none italic animate-pulse">
                     {policy.reason === 'OFF' ? 'SÓ CHAT ACTIVO' : 'FORA DO HORÁRIO'}
                   </span>
-                  <span className="text-[6px] font-bold text-slate-300 uppercase mt-0.5">
+                  <span className="text-[8px] font-bold text-slate-300 uppercase mt-0.5">
                     {policy.reason === 'OFF' ? 'Contactos ocultos' : `Aberto às ${policy.startTime}`}
                   </span>
                 </div>
@@ -237,7 +237,7 @@ export function ListingCard({
                     className="h-7 @sm:h-9 @md:h-11 bg-green-500 text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-green-500/10 no-underline transition-all active:scale-95"
                   >
                     <MessageCircle className="w-2.5 h-2.5 @sm:w-3 @sm:h-3" strokeWidth={3} />
-                    <span className="text-[6px] @sm:text-[8px] font-black uppercase truncate px-1">
+                    <span className="text-[8px] @sm:text-[10px] font-black uppercase truncate px-1">
                       {isLoggedIn ? "WhatsApp" : "Ver"}
                     </span>
                   </button>
@@ -251,7 +251,7 @@ export function ListingCard({
                     className="h-7 @sm:h-9 @md:h-11 bg-slate-900 text-white rounded-lg @sm:rounded-xl flex flex-col items-center justify-center gap-0 @sm:gap-0.5 shadow-sm shadow-slate-900/10 no-underline transition-all active:scale-95"
                   >
                     <Phone className="w-2.5 h-2.5 @sm:w-3 @sm:h-3" strokeWidth={3} />
-                    <span className="text-[6px] @sm:text-[8px] font-black uppercase truncate px-1">
+                    <span className="text-[8px] @sm:text-[10px] font-black uppercase truncate px-1">
                       {isLoggedIn ? "Ligar" : "Ver"}
                     </span>
                   </button>

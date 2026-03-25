@@ -189,7 +189,7 @@ export function ExploreSidebar({
               className="h-11 @sm:h-14 @md:h-16 px-2 @sm:px-4 rounded-2xl font-black text-[9px] @sm:text-xs text-red-500 bg-red-50 border-2 border-red-100 uppercase tracking-tighter whitespace-nowrap hover:bg-red-100 transition-colors flex flex-col items-center justify-center gap-0.5"
             >
               <span className="text-base @sm:text-xl">✕</span>
-              <span className="leading-none text-[7px] @sm:text-[9px]">Limpar</span>
+              <span className="leading-none text-[9px] @sm:text-[11px]">Limpar</span>
             </button>
           )}
         </div>

@@ -111,7 +111,7 @@ export function FavoriteCard({ listing, onRemove, onClick, onChat, onCall, onWha
                   <p className="text-[9px] font-black text-orange-600 uppercase tracking-widest leading-none">
                     {policy.reason === 'OFF' ? 'Só Chat Activo' : 'Fora do Horário'}
                   </p>
-                  <p className="text-[7px] font-bold text-orange-400 mt-1 uppercase">
+                  <p className="text-[9px] font-bold text-orange-400 mt-1 uppercase">
                     {policy.reason === 'OFF' ? 'Contacto oculto pelo vendedor' : `Aberto às ${policy.startTime}`}
                   </p>
                 </div>
