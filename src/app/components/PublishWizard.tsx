@@ -580,7 +580,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
 
             <div className="flex flex-col gap-3">
               <label className="text-sm font-black uppercase tracking-widest text-slate-400">Raça (Opcional)</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(BREEDS_BY_SPECIES[formData.species] || []).map(r => (
                   <button 
                     key={r}
@@ -652,7 +652,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-3">
                   <label className="text-sm font-black uppercase tracking-widest text-slate-400">Distrito</label>
                   <div className="h-16 bg-slate-100 border-2 border-slate-100 rounded-2xl px-6 flex items-center text-lg font-black text-slate-500">

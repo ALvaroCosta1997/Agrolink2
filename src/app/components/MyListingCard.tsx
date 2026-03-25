@@ -58,17 +58,17 @@ export function MyListingCard({ listing, onEdit, onMarkAsSold, policy, onNavigat
 
           {/* KPIs Grid */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col items-center">
+            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex flex-col items-center">
               <Eye className="w-4 h-4 text-primary mb-1" />
               <span className="text-lg font-black text-secondary">{stats.views}</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Vistas</span>
             </div>
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col items-center">
+            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex flex-col items-center">
               <MessageSquare className="w-4 h-4 text-green-500 mb-1" />
               <span className="text-lg font-black text-secondary">{stats.contacts}</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Contactos</span>
             </div>
-            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col items-center">
+            <div className="bg-slate-50 p-2 rounded-2xl border border-slate-100 flex flex-col items-center">
               <Heart className="w-4 h-4 text-red-500 mb-1" />
               <span className="text-lg font-black text-secondary">{stats.saves}</span>
               <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Guardados</span>

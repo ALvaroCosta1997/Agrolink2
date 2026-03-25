@@ -72,7 +72,7 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
           {/* Espécie */}
           <div className="flex flex-col gap-4">
             <h3 className="text-lg font-bold text-secondary">Que animal procura?</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {(['Vacas', 'Ovelhas', 'Cabras'] as Species[]).map(s => (
                 <button 
                   key={s}
@@ -114,7 +114,7 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
               <h3 className="text-lg font-bold text-secondary">Idade (fase)</h3>
               <p className="text-xs font-bold text-slate-400">Filtre por recém-nascido, jovem, adulto ou abate.</p>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {LIFE_STAGE_OPTIONS.map(opt => (
                 <button 
                   key={opt.id}
@@ -198,7 +198,7 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
           <div className="flex flex-col gap-4">
             <h3 className="text-lg font-bold text-secondary">Raça</h3>
             {filters.species.length === 1 ? (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {breeds.map(b => (
                   <button 
                     key={b}
@@ -290,7 +290,7 @@ export function FilterModal({ isOpen, onClose, filters, setFilters }: FilterModa
 
               return (
                 <div className="flex flex-col gap-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-2">
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mínimo</p>
                       <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 focus-within:border-primary transition-colors">
