@@ -418,9 +418,9 @@ export default function App() {
         isLoggedIn: true,
         draftMessage: "Boa tarde, vi o seu anúncio no AgrowLink e estou interessado. Ainda está disponível?",
         mode: 'AMBOS',
-        isFirstLogin: true,
+        isFirstLogin: false,
       });
-      setIsOnboardingVisible(true);
+      setIsOnboardingVisible(false);
     }
   };
 
