@@ -45,13 +45,13 @@ function TermsContent() {
       <Section number={1} title="Identificação do Prestador">
         <p>Nome: Alvaro Costa</p>
         <p className="mt-1">Email: av.pereiradacosta@gmail.com</p>
-        <p className="mt-1">Plataforma: AgroLink — agrolink2.vercel.app</p>
+        <p className="mt-1">Plataforma: AgrowLink — agrowlink.pt</p>
       </Section>
 
       <Section number={2} title="Objeto da Plataforma">
-        <p>O AgroLink é uma plataforma online para publicação e consulta de anúncios classificados de produtos agrícolas e pecuários em Portugal.</p>
+        <p>O AgrowLink é uma plataforma online para publicação e consulta de anúncios classificados de produtos agrícolas e pecuários em Portugal.</p>
         <Callout>
-          O AgroLink NÃO compra, vende, detém ou transporta quaisquer animais ou produtos. O AgroLink NÃO processa pagamentos entre utilizadores. O AgroLink atua exclusivamente como intermediário de visibilidade.
+          O AgrowLink NÃO compra, vende, detém ou transporta quaisquer animais ou produtos. O AgrowLink NÃO processa pagamentos entre utilizadores. O AgrowLink atua exclusivamente como intermediário de visibilidade.
         </Callout>
       </Section>
 
@@ -61,7 +61,7 @@ function TermsContent() {
           <Bullet>O registo requer um endereço de email válido.</Bullet>
           <Bullet>Os utilizadores são responsáveis pela veracidade das informações nos seus perfis e anúncios.</Bullet>
           <Bullet>É proibido publicar conteúdo fraudulento, enganoso ou ilegal.</Bullet>
-          <Bullet>O AgroLink reserva-se o direito de remover anúncios ou suspender contas que violem estes termos.</Bullet>
+          <Bullet>O AgrowLink reserva-se o direito de remover anúncios ou suspender contas que violem estes termos.</Bullet>
         </ul>
       </Section>
 
@@ -78,20 +78,20 @@ function TermsContent() {
           <Bullet>Animais sem registo DGAV.</Bullet>
           <Bullet>Fotos enganosas ou manipulação de preços.</Bullet>
         </ul>
-        <p className="mt-2">O AgroLink reserva-se o direito de moderar e remover qualquer conteúdo.</p>
+        <p className="mt-2">O AgrowLink reserva-se o direito de moderar e remover qualquer conteúdo.</p>
       </Section>
 
       <Section number={6} title="Limitação de Responsabilidade">
         <ul className="flex flex-col gap-0">
-          <Bullet>O AgroLink não é responsável pela qualidade, legalidade ou segurança dos produtos anunciados.</Bullet>
-          <Bullet>O AgroLink não é responsável pela conduta dos utilizadores.</Bullet>
-          <Bullet>O AgroLink não é responsável por quaisquer danos resultantes de transações entre utilizadores.</Bullet>
+          <Bullet>O AgrowLink não é responsável pela qualidade, legalidade ou segurança dos produtos anunciados.</Bullet>
+          <Bullet>O AgrowLink não é responsável pela conduta dos utilizadores.</Bullet>
+          <Bullet>O AgrowLink não é responsável por quaisquer danos resultantes de transações entre utilizadores.</Bullet>
           <Bullet>A plataforma é fornecida "tal como está" sem garantias de qualquer tipo.</Bullet>
         </ul>
       </Section>
 
       <Section number={7} title="Propriedade Intelectual">
-        <p>Todo o branding, design e código do AgroLink é propriedade do AgroLink. Os utilizadores mantêm a propriedade do seu conteúdo (fotos, descrições) mas concedem ao AgroLink licença para o exibir na plataforma.</p>
+        <p>Todo o branding, design e código do AgrowLink é propriedade do AgrowLink. Os utilizadores mantêm a propriedade do seu conteúdo (fotos, descrições) mas concedem ao AgrowLink licença para o exibir na plataforma.</p>
       </Section>
 
       <Section number={8} title="Resolução de Litígios">
@@ -113,7 +113,7 @@ function TermsContent() {
       </Section>
 
       <Section number={10} title="Modificações">
-        <p>O AgroLink reserva-se o direito de modificar estes termos a qualquer momento. Os utilizadores serão notificados de alterações significativas.</p>
+        <p>O AgrowLink reserva-se o direito de modificar estes termos a qualquer momento. Os utilizadores serão notificados de alterações significativas.</p>
         <p className="mt-2 text-xs font-black text-slate-400 uppercase tracking-widest">Última atualização: Março 2026</p>
       </Section>
     </div>
@@ -156,7 +156,7 @@ function PrivacyContent() {
         <ul className="flex flex-col gap-0">
           <Bullet><span className="font-bold text-slate-700">Com outros utilizadores:</span> informações de perfil e contacto dos anúncios são visíveis para outros utilizadores registados (sujeito às definições de visibilidade de contacto).</Bullet>
           <Bullet><span className="font-bold text-slate-700">Prestadores de serviço:</span> Supabase (alojamento de base de dados — UE), Vercel (alojamento — EUA, com acordos de processamento de dados na UE).</Bullet>
-          <Bullet>O AgroLink NÃO vende dados pessoais a terceiros.</Bullet>
+          <Bullet>O AgrowLink NÃO vende dados pessoais a terceiros.</Bullet>
         </ul>
       </Section>
 
@@ -184,7 +184,7 @@ function PrivacyContent() {
 
       <Section number={8} title="Cookies">
         <ul className="flex flex-col gap-0">
-          <Bullet>O AgroLink utiliza cookies essenciais para autenticação e gestão de sessão.</Bullet>
+          <Bullet>O AgrowLink utiliza cookies essenciais para autenticação e gestão de sessão.</Bullet>
           <Bullet>Cookies de análise via Vercel Web Analytics (anonimizados).</Bullet>
           <Bullet>Sem cookies de publicidade ou rastreamento de terceiros.</Bullet>
         </ul>
@@ -235,7 +235,7 @@ export function TermsPage({ onBack }: TermsPageProps) {
             Informação Legal
           </h2>
           <p className="text-white/80 font-medium text-sm leading-relaxed">
-            Termos de utilização e política de privacidade do AgroLink.
+            Termos de utilização e política de privacidade do AgrowLink.
           </p>
         </div>
 
@@ -273,7 +273,7 @@ export function TermsPage({ onBack }: TermsPageProps) {
             activeTab === "termos" ? "text-primary" : "text-blue-700"
           )}>
             {activeTab === "termos"
-              ? "Termos e Condições de Utilização da plataforma AgroLink."
+              ? "Termos e Condições de Utilização da plataforma AgrowLink."
               : "Política de Privacidade — como recolhemos e tratamos os seus dados (RGPD)."
             }
           </p>

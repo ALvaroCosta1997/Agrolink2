@@ -74,7 +74,7 @@ export function CallModal({ isOpen, onClose, phone, sellerName }: CallModalProps
               <MessageSquare className="w-5 h-5 text-primary" />
             </div>
             <p className="text-[11px] font-bold text-slate-500 leading-relaxed text-left">
-              O vendedor prefere ser contactado durante o dia. Diga que viu o anúncio no <span className="text-primary font-black uppercase">AgroLink</span>.
+              O vendedor prefere ser contactado durante o dia. Diga que viu o anúncio no <span className="text-primary font-black uppercase">AgrowLink</span>.
             </p>
           </div>
         </motion.div>

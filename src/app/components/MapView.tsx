@@ -430,7 +430,7 @@ export function MapView({
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-50/95 backdrop-blur-sm z-50">
           <div className="w-16 h-16 border-8 border-primary/20 border-t-primary rounded-full animate-spin"></div>
           <div className="flex flex-col items-center">
-            <p className="font-black text-secondary uppercase tracking-[0.2em] text-sm italic">AgroLink</p>
+            <p className="font-black text-secondary uppercase tracking-[0.2em] text-sm italic">AgrowLink</p>
             <p className="font-bold text-primary/60 uppercase tracking-widest text-[10px] mt-2">A sintonizar mercado...</p>
           </div>
         </div>

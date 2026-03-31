@@ -10,8 +10,8 @@ interface HelpPageProps {
 const sections = [
   {
     icon: HelpCircle,
-    title: "O que é o AgroLink?",
-    content: "O AgroLink é uma plataforma de visibilidade que liga pequenos produtores pecuários (vendedores) a compradores em todo o Portugal. O AgroLink NÃO processa pagamentos, não gere logística nem intermedeia transações — todos os negócios acontecem diretamente entre comprador e vendedor.",
+    title: "O que é o AgrowLink?",
+    content: "O AgrowLink é uma plataforma de visibilidade que liga pequenos produtores pecuários (vendedores) a compradores em todo o Portugal. O AgrowLink NÃO processa pagamentos, não gere logística nem intermedeia transações — todos os negócios acontecem diretamente entre comprador e vendedor.",
   },
   {
     icon: ShoppingCart,
@@ -31,7 +31,7 @@ const sections = [
   {
     icon: MessageCircle,
     title: "Mensagens e Chat",
-    content: "O AgroLink oferece um sistema de mensagens integrado. Pode enviar uma mensagem automática personalizada e alterá-la a qualquer momento. As conversas estão organizadas em \"Comprar\" (quando contacta vendedores) e \"Vender\" (quando recebe mensagens de compradores).",
+    content: "O AgrowLink oferece um sistema de mensagens integrado. Pode enviar uma mensagem automática personalizada e alterá-la a qualquer momento. As conversas estão organizadas em \"Comprar\" (quando contacta vendedores) e \"Vender\" (quando recebe mensagens de compradores).",
   },
   {
     icon: Eye,
@@ -45,7 +45,7 @@ const sections = [
   },
   {
     icon: Shield,
-    title: "Contactar o AgroLink",
+    title: "Contactar o AgrowLink",
     content: "Para questões, sugestões ou problemas:\nEmail: av.pereiradacosta@gmail.com",
   },
 ];
@@ -126,7 +126,7 @@ export function HelpPage({ onBack }: HelpPageProps) {
             Como podemos ajudar?
           </h2>
           <p className="text-white/80 font-medium text-sm leading-relaxed">
-            Encontre respostas às perguntas mais frequentes sobre o AgroLink.
+            Encontre respostas às perguntas mais frequentes sobre o AgrowLink.
           </p>
         </div>
 

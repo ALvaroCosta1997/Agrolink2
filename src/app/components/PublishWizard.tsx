@@ -794,7 +794,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
 
             <div className="flex items-start gap-3 p-4 bg-green-50 text-green-700 rounded-2xl text-sm font-bold shadow-sm">
               <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
-              <p>Ao publicar, o seu anúncio ficará disponível para todos os compradores no AgroLink.</p>
+              <p>Ao publicar, o seu anúncio ficará disponível para todos os compradores no AgrowLink.</p>
             </div>
           </div>
         );

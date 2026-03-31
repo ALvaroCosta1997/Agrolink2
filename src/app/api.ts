@@ -1,5 +1,5 @@
 /**
- * AgroLink API — frontend helper for communicating with the Supabase Edge Function server.
+ * AgrowLink API — frontend helper for communicating with the Supabase Edge Function server.
  * All data flows through this module instead of localStorage.
  */
 

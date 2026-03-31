@@ -63,7 +63,7 @@ export function OnboardingScreen({ user, onComplete }: OnboardingScreenProps) {
                 <User className="w-12 h-12 text-primary" strokeWidth={2.5} />
               </div>
               <div className="text-center space-y-2">
-                <h1 className="text-4xl font-black text-secondary italic leading-tight">Bem-vindo ao AgroLink!</h1>
+                <h1 className="text-4xl font-black text-secondary italic leading-tight">Bem-vindo ao AgrowLink!</h1>
                 <p className="text-slate-500 font-bold">Vamos configurar o seu perfil profissional.</p>
               </div>
 
@@ -146,7 +146,7 @@ export function OnboardingScreen({ user, onComplete }: OnboardingScreenProps) {
               </div>
               <div className="text-center space-y-2">
                 <h1 className="text-4xl font-black text-secondary italic leading-tight">Qual o seu objetivo?</h1>
-                <p className="text-slate-500 font-bold">Personalize a sua experiência no AgroLink.</p>
+                <p className="text-slate-500 font-bold">Personalize a sua experiência no AgrowLink.</p>
               </div>
 
               <div className="w-full flex flex-col gap-4">

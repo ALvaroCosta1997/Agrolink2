@@ -164,12 +164,12 @@ export default function App() {
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showCookieBanner, setShowCookieBanner] = useState(() =>
-    !document.cookie.split(";").some((c) => c.trim().startsWith("agrolink_consent="))
+    !document.cookie.split(";").some((c) => c.trim().startsWith("agrowlink_consent="))
   );
 
   const handleCookieConsent = (accepted: boolean) => {
     const value = accepted ? "accepted" : "rejected";
-    document.cookie = `agrolink_consent=${value}; path=/; max-age=31536000; SameSite=Lax`;
+    document.cookie = `agrowlink_consent=${value}; path=/; max-age=31536000; SameSite=Lax`;
     setShowCookieBanner(false);
   };
   const [favSpeciesFilter, setFavSpeciesFilter] = useState<Species | null>(null);
@@ -354,7 +354,7 @@ export default function App() {
         name: profileData?.name || email.split('@')[0],
         email: email,
         isLoggedIn: true,
-        draftMessage: profileData?.draftMessage || "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+        draftMessage: profileData?.draftMessage || "Boa tarde, vi o seu anúncio no AgrowLink e estou interessado. Ainda está disponível?",
         mode: profileData?.mode || 'AMBOS',
         region: profileData?.region || '',
         isFirstLogin: profileData?.isFirstLogin ?? true,
@@ -406,7 +406,7 @@ export default function App() {
             setPendingAction(null);
           }, 300);
         }
-        toast.success("Bem-vindo de volta ao AgroLink!");
+        toast.success("Bem-vindo de volta ao AgrowLink!");
       }
     } catch (err) {
       console.error("Error loading profile after login:", err);
@@ -416,7 +416,7 @@ export default function App() {
         name: email.split('@')[0],
         email,
         isLoggedIn: true,
-        draftMessage: "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+        draftMessage: "Boa tarde, vi o seu anúncio no AgrowLink e estou interessado. Ainda está disponível?",
         mode: 'AMBOS',
         isFirstLogin: true,
       });
@@ -592,7 +592,7 @@ export default function App() {
     requireAuth(() => {
       const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
       const finalPhone = cleanPhone.startsWith('351') ? cleanPhone : `351${cleanPhone}`;
-      const message = encodeURIComponent(`Olá, vi o seu anúncio de ${listing.species} (${listing.breed || ''}) no AgroLink e gostaria de mais informações.`);
+      const message = encodeURIComponent(`Olá, vi o seu anúncio de ${listing.species} (${listing.breed || ''}) no AgrowLink e gostaria de mais informações.`);
       window.open(`https://wa.me/${finalPhone}?text=${message}`, '_blank');
     });
   };
@@ -658,7 +658,7 @@ export default function App() {
             isLoggedIn: true,
             draftMessage:
               profileData?.draftMessage ||
-              "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+              "Boa tarde, vi o seu anúncio no AgrowLink e estou interessado. Ainda está disponível?",
             mode: profileData?.mode || "AMBOS",
             region: profileData?.region || "",
             isFirstLogin: profileData?.isFirstLogin ?? false,
@@ -1412,7 +1412,7 @@ export default function App() {
                   <div>
                     <h3 className="text-xl font-black text-secondary uppercase tracking-tight">Mostrar WhatsApp e telefone</h3>
                     <p className="text-sm font-bold text-slate-400 max-w-xs mt-1 italic">
-                      Desliga para não receber chamadas. Os interessados falam por AgroLink Chat.
+                      Desliga para não receber chamadas. Os interessados falam por AgrowLink Chat.
                     </p>
                   </div>
                   <button 
@@ -2018,7 +2018,7 @@ export default function App() {
           <span className="text-white font-black text-4xl italic">A</span>
         </div>
         <div className="text-center">
-          <h1 className="text-3xl font-black text-secondary">AgroLink</h1>
+          <h1 className="text-3xl font-black text-secondary">AgrowLink</h1>
           <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mt-1">A ligar produtores</p>
         </div>
         <Loader2 className="w-8 h-8 text-primary animate-spin mt-4" />
@@ -2041,7 +2041,7 @@ export default function App() {
           </div>
           <div className="flex flex-col min-w-0 overflow-hidden pr-4">
             <span className="font-black text-2xl lg:text-3xl tracking-tighter leading-none text-secondary">
-              AgroLink
+              AgrowLink
             </span>
             <span className="hidden lg:block text-[10px] text-primary/60 uppercase tracking-[0.3em] font-black mt-1 leading-tight">
               A Ligar Produtores
@@ -2107,7 +2107,7 @@ export default function App() {
               </span>
             </div>
             <span className="font-black text-2xl tracking-tighter text-secondary">
-              AgroLink
+              AgrowLink
             </span>
           </div>
           <div className="flex items-center gap-3">

@@ -84,7 +84,7 @@ app.post(`${PREFIX}/auth/signup`, async (c) => {
       mode: "AMBOS",
       isFirstLogin: true,
       draftMessage:
-        "Boa tarde, vi o seu anúncio no AgroLink e estou interessado. Ainda está disponível?",
+        "Boa tarde, vi o seu anúncio no AgrowLink e estou interessado. Ainda está disponível?",
       contactVisibility: {
         enabled: true,
         mode: "ALWAYS",

@@ -101,7 +101,7 @@ export function SecurityPage({ onBack, userId }: SecurityPageProps) {
             A sua segurança é a nossa prioridade
           </h2>
           <p className="text-white/90 font-medium text-sm leading-relaxed">
-            Leia estas dicas antes de comprar ou vender no AgroLink.
+            Leia estas dicas antes de comprar ou vender no AgrowLink.
           </p>
         </div>
 
@@ -109,7 +109,7 @@ export function SecurityPage({ onBack, userId }: SecurityPageProps) {
         <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-6 flex gap-4">
           <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-amber-800 font-bold text-sm leading-relaxed">
-            ⚠️ O AgroLink é uma plataforma de visibilidade. Não processamos pagamentos nem garantimos transações.{" "}
+            ⚠️ O AgrowLink é uma plataforma de visibilidade. Não processamos pagamentos nem garantimos transações.{" "}
             <span className="font-black">Verifique sempre pessoalmente os animais antes de qualquer pagamento.</span>
           </p>
         </div>
@@ -141,7 +141,7 @@ export function SecurityPage({ onBack, userId }: SecurityPageProps) {
           icon={<Shield className="w-5 h-5 text-green-600" />}
           items={[
             "Não partilhe informações pessoais desnecessárias antes de confirmar o interesse do comprador.",
-            "Use o Chat do AgroLink para o contacto inicial — cria um registo da conversa.",
+            "Use o Chat do AgrowLink para o contacto inicial — cria um registo da conversa.",
             "Tenha cuidado com compradores que querem pagar por métodos invulgares ou que pressionam para fechar o negócio urgentemente.",
             "Nunca envie animais sem pagamento confirmado.",
             "Use o controlo de horário de contactos para gerir quando os compradores podem ligar.",
@@ -212,7 +212,7 @@ export function SecurityPage({ onBack, userId }: SecurityPageProps) {
           </p>
           <div className="flex flex-col gap-3">
             {[
-              { label: "AgroLink", value: "av.pereiradacosta@gmail.com" },
+              { label: "AgrowLink", value: "av.pereiradacosta@gmail.com" },
               { label: "GNR", value: "213 217 000" },
               { label: "PSP", value: "218 111 000" },
               { label: "DGAV", value: "213 239 500" },

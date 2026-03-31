@@ -229,7 +229,7 @@ export function ExploreSidebar({
               Sem anúncios disponíveis
             </p>
             <p className="text-sm font-bold text-slate-500 mb-8">
-              Seja o primeiro a publicar um anúncio no AgroLink!
+              Seja o primeiro a publicar um anúncio no AgrowLink!
             </p>
             {onPublish && (
               <button

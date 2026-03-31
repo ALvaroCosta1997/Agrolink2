@@ -1,7 +1,7 @@
 
-  # AgroLink
+  # AgrowLink
 
-  This is a code bundle for AgroLink. The original project is available at https://www.figma.com/design/5Ecl033SaEfmvMC8hY4LFw/AgroLink.
+  This is a code bundle for AgrowLink. The original project is available at https://www.figma.com/design/5Ecl033SaEfmvMC8hY4LFw/AgrowLink.
 
   ## Running the code
 

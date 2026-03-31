@@ -74,7 +74,7 @@ export function ListingDetails({
     onRequireAuth(() => {
       const cleanPhone = listing.contacts.phone.replace(/\D/g, '');
       const finalPhone = cleanPhone.startsWith('351') ? cleanPhone : `351${cleanPhone}`;
-      const message = encodeURIComponent(`Olá, vi o seu anúncio de ${listing.species} (${listing.breed || ''}) no AgroLink e gostaria de mais informações.`);
+      const message = encodeURIComponent(`Olá, vi o seu anúncio de ${listing.species} (${listing.breed || ''}) no AgrowLink e gostaria de mais informações.`);
       window.open(`https://wa.me/${finalPhone}?text=${message}`, '_blank');
     });
   };
@@ -328,7 +328,7 @@ export function ListingDetails({
             
             <div className="flex items-start gap-3 p-4 bg-white/5 rounded-2xl text-xs font-medium text-white/60">
               <Info className="w-5 h-5 flex-shrink-0" />
-              <p>O AgroLink recomenda que nunca envie dinheiro adiantado sem ver os animais pessoalmente.</p>
+              <p>O AgrowLink recomenda que nunca envie dinheiro adiantado sem ver os animais pessoalmente.</p>
             </div>
           </div>
         </div>

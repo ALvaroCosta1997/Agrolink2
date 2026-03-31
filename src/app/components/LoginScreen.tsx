@@ -96,7 +96,7 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
         >
           <ChevronLeft className="w-6 h-6" strokeWidth={3} />
         </button>
-        <span className="font-black text-secondary tracking-widest uppercase text-xs italic">AgroLink</span>
+        <span className="font-black text-secondary tracking-widest uppercase text-xs italic">AgrowLink</span>
         <div className="w-12 h-12" />
       </header>
 
@@ -162,7 +162,7 @@ export function LoginScreen({ onBack, onLoginSuccess }: LoginScreenProps) {
                 <CheckCircle2 className="w-10 h-10 text-green-500" />
                 <p className="font-black text-secondary">Email enviado!</p>
                 <p className="text-sm font-bold text-slate-500">Verifique a sua caixa de correio e clique no link para redefinir a palavra-passe.</p>
-                <p className="text-xs text-slate-400 text-center mt-2">Se o email introduzido não estiver associado a uma conta AgroLink, não receberá nenhum email de recuperação.</p>
+                <p className="text-xs text-slate-400 text-center mt-2">Se o email introduzido não estiver associado a uma conta AgrowLink, não receberá nenhum email de recuperação.</p>
               </div>
             ) : (
               <form onSubmit={handleForgot} className="flex flex-col gap-4">
