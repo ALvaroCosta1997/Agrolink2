@@ -1,10 +1,10 @@
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const INTERNAL_SECRET = Deno.env.get('INTERNAL_SECRET') ?? 'agrowlink-internal-2026';
 
 Deno.serve(async (req) => {
-  // Verify the request comes from our own Supabase project
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader || !authHeader.includes(SERVICE_ROLE_KEY)) {
+  // Verify the request comes from our own database trigger
+  const internalSecret = req.headers.get('x-internal-secret');
+  if (!internalSecret || internalSecret !== INTERNAL_SECRET) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       </div>
       ` : ''}
       <div style="text-align:center;margin:0 0 32px 0;">
-        <a href="https://agrowlink.pt" style="display:inline-block;background:#2d5a27;color:#ffffff;font-size:13px;font-weight:900;text-decoration:none;padding:18px 44px;border-radius:40px;letter-spacing:0.2em;text-transform:uppercase;">VER MENSAGEM</a>
+        <a href="https://agrowlink.app" style="display:inline-block;background:#2d5a27;color:#ffffff;font-size:13px;font-weight:900;text-decoration:none;padding:18px 44px;border-radius:40px;letter-spacing:0.2em;text-transform:uppercase;">VER MENSAGEM</a>
       </div>
       <div style="background:#f1f3ec;border-radius:16px;padding:16px 20px;text-align:center;">
         <p style="color:#6b7280;font-size:12px;line-height:1.6;margin:0;">
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     </div>
     <div style="background:#2d5a27;padding:20px 28px;text-align:center;">
       <p style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:900;letter-spacing:0.2em;text-transform:uppercase;margin:0 0 6px 0;">© 2026 AgrowLink</p>
-      <p style="color:rgba(255,255,255,0.5);font-size:11px;margin:0;">agrowlink.pt · av.pereiradacosta@gmail.com</p>
+      <p style="color:rgba(255,255,255,0.5);font-size:11px;margin:0;">agrowlink.app · av.pereiradacosta@gmail.com</p>
     </div>
   </div>
 </div>`;
