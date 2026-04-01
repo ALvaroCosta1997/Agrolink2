@@ -11,6 +11,31 @@ import { motion } from 'motion/react';
 import { supabase } from '../api';
 import { PhoneCountrySelect, PHONE_COUNTRIES } from './PhoneCountrySelect';
 
+// Default center coordinates for each Portuguese district
+const DISTRICT_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'Aveiro':           { lat: 40.6443, lng: -8.6455 },
+  'Beja':             { lat: 37.9640, lng: -7.8733 },
+  'Braga':            { lat: 41.5455, lng: -8.4265 },
+  'Bragança':         { lat: 41.8061, lng: -6.7588 },
+  'Castelo Branco':   { lat: 39.8220, lng: -7.4909 },
+  'Coimbra':          { lat: 40.2033, lng: -8.4103 },
+  'Évora':            { lat: 38.5714, lng: -7.9135 },
+  'Faro':             { lat: 37.0194, lng: -7.9322 },
+  'Guarda':           { lat: 40.5364, lng: -7.2677 },
+  'Leiria':           { lat: 39.7436, lng: -8.8071 },
+  'Lisboa':           { lat: 38.7169, lng: -9.1395 },
+  'Portalegre':       { lat: 39.2967, lng: -7.4286 },
+  'Porto':            { lat: 41.1579, lng: -8.6291 },
+  'Santarém':         { lat: 39.2369, lng: -8.6856 },
+  'Setúbal':          { lat: 38.5244, lng: -8.8882 },
+  'Viana do Castelo': { lat: 41.6936, lng: -8.8340 },
+  'Vila Real':        { lat: 41.2997, lng: -7.7439 },
+  'Viseu':            { lat: 40.6566, lng: -7.9122 },
+};
+
+const DEFAULT_LAT = 38.5714;
+const DEFAULT_LNG = -7.9135;
+
 // Mapping of Portuguese Municipalities to Districts
 const MUNICIPALITY_TO_DISTRICT: Record<string, string> = {
   // Beja
@@ -175,8 +200,8 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
       distrito: '',
       freguesia: '',
       address: '',
-      lat: 38.5714,
-      lng: -7.9135,
+      lat: (currentUser?.region && DISTRICT_COORDINATES[currentUser.region]?.lat) || DEFAULT_LAT,
+      lng: (currentUser?.region && DISTRICT_COORDINATES[currentUser.region]?.lng) || DEFAULT_LNG,
       showExactLocation: false,
       description: '',
       phoneCountry: currentUser?.phoneCountry || '+351',
@@ -193,11 +218,16 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
   // Also update if user logs in while wizard is open (only in create mode)
   useEffect(() => {
     if (currentUser && !isEditMode) {
+      const regionCoords = currentUser.region ? DISTRICT_COORDINATES[currentUser.region] : undefined;
       setFormData(prev => ({
         ...prev,
         name: prev.name || currentUser.name,
         phoneNumber: prev.phoneNumber || currentUser.phoneNumber || '',
-        phoneCountry: prev.phoneCountry || currentUser.phoneCountry || '+351'
+        phoneCountry: prev.phoneCountry || currentUser.phoneCountry || '+351',
+        // Apply region coords only if still at the Portugal-center default
+        ...(regionCoords && prev.lat === DEFAULT_LAT && prev.lng === DEFAULT_LNG
+          ? { lat: regionCoords.lat, lng: regionCoords.lng }
+          : {}),
       }));
     }
   }, [currentUser]);
