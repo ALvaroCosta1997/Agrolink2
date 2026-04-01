@@ -1,0 +1,2 @@
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS has_seen_survey BOOLEAN DEFAULT false;

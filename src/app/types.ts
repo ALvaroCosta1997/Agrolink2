@@ -57,6 +57,7 @@ export interface User {
   mode: UsageMode;
   email?: string;
   isFirstLogin?: boolean;
+  hasSeenSurvey?: boolean;
   phoneNumber?: string;
   phoneCountry?: string;
   contactVisibility?: {
