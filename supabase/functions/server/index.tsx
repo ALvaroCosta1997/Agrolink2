@@ -209,7 +209,21 @@ app.delete(`${PREFIX}/listings/:id`, async (c) => {
     if (existing.sellerId !== user.id)
       return c.json({ error: "Sem permissão" }, 403);
 
+    // Remove from KV cache (hides listing from app immediately)
     await kv.del(`listing:${id}`);
+
+    // Soft-delete in the Supabase listings table so pg_cron governance
+    // jobs can find this listing and purge its chats after 10 days.
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    await supabase
+      .from("listings")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("seller_id", user.id);
+
     return c.json({ success: true });
   } catch (err) {
     console.log("Listing DELETE error:", err);
