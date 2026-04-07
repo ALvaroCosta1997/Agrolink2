@@ -4,7 +4,7 @@ import { Species, Listing, LifeStage, User } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion } from 'motion/react';
@@ -13,28 +13,36 @@ import { PhoneCountrySelect, PHONE_COUNTRIES } from './PhoneCountrySelect';
 
 // Default center coordinates for each Portuguese district
 const DISTRICT_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  'Aveiro':           { lat: 40.6443, lng: -8.6455 },
-  'Beja':             { lat: 37.9640, lng: -7.8733 },
-  'Braga':            { lat: 41.5455, lng: -8.4265 },
-  'Bragança':         { lat: 41.8061, lng: -6.7588 },
-  'Castelo Branco':   { lat: 39.8220, lng: -7.4909 },
-  'Coimbra':          { lat: 40.2033, lng: -8.4103 },
-  'Évora':            { lat: 38.5714, lng: -7.9135 },
-  'Faro':             { lat: 37.0194, lng: -7.9322 },
-  'Guarda':           { lat: 40.5364, lng: -7.2677 },
-  'Leiria':           { lat: 39.7436, lng: -8.8071 },
-  'Lisboa':           { lat: 38.7169, lng: -9.1395 },
-  'Portalegre':       { lat: 39.2967, lng: -7.4286 },
-  'Porto':            { lat: 41.1579, lng: -8.6291 },
-  'Santarém':         { lat: 39.2369, lng: -8.6856 },
-  'Setúbal':          { lat: 38.5244, lng: -8.8882 },
-  'Viana do Castelo': { lat: 41.6936, lng: -8.8340 },
-  'Vila Real':        { lat: 41.2997, lng: -7.7439 },
-  'Viseu':            { lat: 40.6566, lng: -7.9122 },
+  'Aveiro':           { lat: 40.644, lng: -8.645 },
+  'Beja':             { lat: 37.964, lng: -7.873 },
+  'Braga':            { lat: 41.545, lng: -8.426 },
+  'Bragança':         { lat: 41.806, lng: -6.757 },
+  'Castelo Branco':   { lat: 39.823, lng: -7.492 },
+  'Coimbra':          { lat: 40.209, lng: -8.424 },
+  'Évora':            { lat: 38.571, lng: -7.906 },
+  'Faro':             { lat: 37.020, lng: -7.935 },
+  'Guarda':           { lat: 40.537, lng: -7.267 },
+  'Leiria':           { lat: 39.744, lng: -8.807 },
+  'Lisboa':           { lat: 38.717, lng: -9.139 },
+  'Portalegre':       { lat: 39.296, lng: -7.430 },
+  'Porto':            { lat: 41.157, lng: -8.629 },
+  'Santarém':         { lat: 39.236, lng: -8.686 },
+  'Setúbal':          { lat: 38.524, lng: -8.893 },
+  'Viana do Castelo': { lat: 41.694, lng: -8.834 },
+  'Vila Real':        { lat: 41.300, lng: -7.745 },
+  'Viseu':            { lat: 40.661, lng: -7.909 },
 };
 
-const DEFAULT_LAT = 38.5714;
-const DEFAULT_LNG = -7.9135;
+const DEFAULT_LAT = 38.571;
+const DEFAULT_LNG = -7.906;
+
+// Profile region is stored as "Castelo Branco, Portugal" (with ", Portugal" suffix
+// appended by OnboardingScreen). Strip that suffix before the lookup.
+const getDistrictCoords = (region?: string) => {
+  if (!region) return undefined;
+  const name = region.replace(/, Portugal$/i, '').trim();
+  return DISTRICT_COORDINATES[name];
+};
 
 // Mapping of Portuguese Municipalities to Districts
 const MUNICIPALITY_TO_DISTRICT: Record<string, string> = {
@@ -97,6 +105,15 @@ function LocationPicker({ lat, lng, onLocationSelect, species }: { lat: number; 
   );
 }
 
+// Moves the map whenever lat/lng changes (MapContainer.center is mount-only in react-leaflet)
+function MapViewUpdater({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng]);
+  }, [lat, lng, map]);
+  return null;
+}
+
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -131,6 +148,8 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
   const [isCompressing, setIsCompressing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // True while the map location has not been manually touched by the user
+  const locationUntouched = useRef(true);
 
   const compressImage = (file: File, maxWidth = 1200, quality = 0.7): Promise<Blob> =>
     new Promise((resolve, reject) => {
@@ -200,8 +219,8 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
       distrito: '',
       freguesia: '',
       address: '',
-      lat: (currentUser?.region && DISTRICT_COORDINATES[currentUser.region]?.lat) || DEFAULT_LAT,
-      lng: (currentUser?.region && DISTRICT_COORDINATES[currentUser.region]?.lng) || DEFAULT_LNG,
+      lat: getDistrictCoords(currentUser?.region)?.lat ?? DEFAULT_LAT,
+      lng: getDistrictCoords(currentUser?.region)?.lng ?? DEFAULT_LNG,
       showExactLocation: false,
       description: '',
       phoneCountry: currentUser?.phoneCountry || '+351',
@@ -218,14 +237,14 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
   // Also update if user logs in while wizard is open (only in create mode)
   useEffect(() => {
     if (currentUser && !isEditMode) {
-      const regionCoords = currentUser.region ? DISTRICT_COORDINATES[currentUser.region] : undefined;
+      const regionCoords = getDistrictCoords(currentUser.region);
       setFormData(prev => ({
         ...prev,
         name: prev.name || currentUser.name,
         phoneNumber: prev.phoneNumber || currentUser.phoneNumber || '',
         phoneCountry: prev.phoneCountry || currentUser.phoneCountry || '+351',
-        // Apply region coords only if still at the Portugal-center default
-        ...(regionCoords && prev.lat === DEFAULT_LAT && prev.lng === DEFAULT_LNG
+        // Apply region coords only if the user has not manually picked a location yet
+        ...(regionCoords && locationUntouched.current
           ? { lat: regionCoords.lat, lng: regionCoords.lng }
           : {}),
       }));
@@ -284,6 +303,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
   };
 
   const handleLocationSelect = (lat: number, lng: number) => {
+    locationUntouched.current = false;
     fetchAddressInfo(lat, lng);
   };
 
@@ -653,17 +673,18 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
                   </button>
                 </div>
                 <div className="h-64 rounded-3xl overflow-hidden border-4 border-slate-100 relative z-0">
-                  <MapContainer 
-                    center={[formData.lat, formData.lng]} 
-                    zoom={10} 
+                  <MapContainer
+                    center={[formData.lat, formData.lng]}
+                    zoom={10}
                     style={{ height: '100%', width: '100%' }}
                     scrollWheelZoom={false}
                   >
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <LocationPicker 
-                      lat={formData.lat} 
-                      lng={formData.lng} 
-                      onLocationSelect={handleLocationSelect} 
+                    <MapViewUpdater lat={formData.lat} lng={formData.lng} />
+                    <LocationPicker
+                      lat={formData.lat}
+                      lng={formData.lng}
+                      onLocationSelect={handleLocationSelect}
                       species={formData.species}
                     />
                   </MapContainer>
