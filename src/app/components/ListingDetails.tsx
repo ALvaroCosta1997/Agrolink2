@@ -318,9 +318,9 @@ export function ListingDetails({
               ) : (
                 <div className="col-span-2 p-6 bg-white/5 border-2 border-white/10 rounded-3xl text-center">
                   <p className="text-sm font-bold text-white/60">
-                    {policy.reason === 'OFF' 
-                      ? "O vendedor prefere ser contactado por mensagem interna." 
-                      : `Fora do horário. Envia mensagem e eu respondo às ${policy.startTime}.`}
+                    {policy.reason === 'OFF'
+                      ? "O vendedor prefere ser contactado por mensagem interna."
+                      : `Disponível por WhatsApp e telefone das ${policy.startTime} às ${policy.endTime}.`}
                   </p>
                 </div>
               )}

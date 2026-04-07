@@ -129,10 +129,55 @@ app.put(`${PREFIX}/profile`, async (c) => {
     const updated = { ...existing, ...updates, id: user.id };
     await kv.set(`profile:${user.id}`, updated);
 
+    // Mirror contact-visibility fields to the profiles Postgres table so
+    // other users can read them without service-role access to the KV store.
+    const cv = updated.contactVisibility;
+    if (cv !== undefined) {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      );
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        show_contacts:    cv.enabled ?? true,
+        contact_schedule: cv.mode === "SCHEDULE" ? "schedule" : "always",
+        contact_from:     cv.startTime || "09:00",
+        contact_until:    cv.endTime   || "19:00",
+      }, { onConflict: "id" });
+    }
+
     return c.json({ profile: updated });
   } catch (err) {
     console.log("Profile PUT error:", err);
     return c.json({ error: `Erro ao atualizar perfil: ${err}` }, 500);
+  }
+});
+
+// ── Public: fetch a seller's contact-visibility settings ─────────
+// No auth required — only exposes the 4 contact-governance fields.
+app.get(`${PREFIX}/seller/:userId/contact-visibility`, async (c) => {
+  try {
+    const userId = c.req.param("userId");
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const { data } = await supabase
+      .from("profiles")
+      .select("show_contacts, contact_schedule, contact_from, contact_until")
+      .eq("id", userId)
+      .maybeSingle();
+
+    // If no row yet, return safe defaults (show everything).
+    return c.json({
+      enabled:   data?.show_contacts    ?? true,
+      mode:      data?.contact_schedule === "schedule" ? "SCHEDULE" : "ALWAYS",
+      startTime: (data?.contact_from   || "09:00").slice(0, 5),
+      endTime:   (data?.contact_until  || "19:00").slice(0, 5),
+    });
+  } catch (err) {
+    console.log("Seller visibility GET error:", err);
+    return c.json({ error: `Erro ao obter visibilidade: ${err}` }, 500);
   }
 });
 

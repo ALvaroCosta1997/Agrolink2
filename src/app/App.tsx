@@ -98,7 +98,11 @@ export type ContactPolicy = {
   endTime?: string;
 };
 
-const getContactPolicy = (listing: Listing, currentUser: UserType | null): ContactPolicy => {
+const getContactPolicy = (
+  listing: Listing,
+  currentUser: UserType | null,
+  sellerContactCache: Record<string, { enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string }> = {}
+): ContactPolicy => {
   // 1. Resolve Seller Visibility
   const defaultVisibility = {
     enabled: true,
@@ -109,13 +113,9 @@ const getContactPolicy = (listing: Listing, currentUser: UserType | null): Conta
 
   const isOwner = currentUser && listing.sellerId === currentUser.id;
 
-  const visibility = isOwner && currentUser 
+  const visibility = isOwner && currentUser
     ? (currentUser.contactVisibility || defaultVisibility)
-    : (listing.location.municipality === 'Beja' 
-      ? { enabled: true, mode: 'SCHEDULE' as const, startTime: '10:00', endTime: '14:00' }
-      : (listing.location.municipality === 'Elvas'
-        ? { enabled: false, mode: 'ALWAYS' as const, startTime: '09:00', endTime: '19:00' }
-        : defaultVisibility));
+    : (sellerContactCache[listing.sellerId] || defaultVisibility);
 
   // 2. Compute Policy
   if (!visibility.enabled) {
@@ -160,6 +160,9 @@ export default function App() {
     useState<View>("explorar");
   const [selectedListing, setSelectedListing] =
     useState<Listing | null>(null);
+  const [sellerContactCache, setSellerContactCache] = useState<Record<string, {
+    enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string;
+  }>>({});
   const [editingListing, setEditingListing] =
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -1021,6 +1024,13 @@ export default function App() {
   const navigateToDetails = (listing: Listing) => {
     setSelectedListing(listing);
     setCurrentView("detalhes");
+    // Fetch seller's real contact-visibility if not already cached
+    const sellerId = listing.sellerId;
+    if (sellerId && sellerId !== currentUser?.id && !sellerContactCache[sellerId]) {
+      api.profile.getSellerVisibility(sellerId).then((v) => {
+        setSellerContactCache(prev => ({ ...prev, [sellerId]: v }));
+      }).catch(() => { /* use default on error */ });
+    }
   };
 
   const navigateToChat = (listing?: Listing) => {
@@ -1085,7 +1095,7 @@ export default function App() {
                     navigateToDetails={navigateToDetails}
                     cardRefs={cardRefs}
                     isLoggedIn={!!currentUser}
-                    getContactPolicy={(l) => getContactPolicy(l, currentUser)}
+                    getContactPolicy={(l) => getContactPolicy(l, currentUser, sellerContactCache)}
                     onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
                     allListingsCount={listings.length}
                     onPublish={() => { requireAuth(() => setCurrentView("publicar")); }}
@@ -1124,7 +1134,7 @@ export default function App() {
                   navigateToDetails={navigateToDetails}
                   cardRefs={cardRefs}
                   isLoggedIn={!!currentUser}
-                  getContactPolicy={(l) => getContactPolicy(l, currentUser)}
+                  getContactPolicy={(l) => getContactPolicy(l, currentUser, sellerContactCache)}
                   onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
                 />
               </div>
@@ -1162,7 +1172,7 @@ export default function App() {
                 }}
                 onPolygonDeleted={() => setActivePolygon(null)}
                 mobileViewMode={mobileViewMode}
-                getContactPolicy={(l) => getContactPolicy(l, currentUser)}
+                getContactPolicy={(l) => getContactPolicy(l, currentUser, sellerContactCache)}
                 contactVisibilityVersion={currentUser?.contactVisibility}
               />
 
@@ -1350,7 +1360,7 @@ export default function App() {
                     onCall={() => handleCall(l)}
                     onWhatsApp={() => handleWhatsApp(l)}
                     isLoggedIn={!!currentUser}
-                    policy={getContactPolicy(l, currentUser)}
+                    policy={getContactPolicy(l, currentUser, sellerContactCache)}
                   />
                 ))}
               </div>
@@ -1369,7 +1379,7 @@ export default function App() {
           endTime: '19:00'
         };
 
-        const updateVisibility = (updates: Partial<typeof visibility>) => {
+        const updateVisibility = (updates: Partial<typeof visibility>, silent = false) => {
           if (!currentUser) return;
           const newVisibility = { ...visibility, ...updates };
           const updatedUser = {
@@ -1378,7 +1388,19 @@ export default function App() {
           };
           setCurrentUser(updatedUser);
           api.profile.update({ contactVisibility: newVisibility }).catch(console.error);
-          toast.success("Guardado. Aplicado a todos os anúncios.");
+          if (!silent) toast.success("Guardado. Aplicado a todos os anúncios.");
+        };
+
+        // Debounced version for time-picker inputs (500 ms)
+        const timeDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+        const updateVisibilityDebounced = (updates: Partial<typeof visibility>) => {
+          if (!currentUser) return;
+          const newVisibility = { ...visibility, ...updates };
+          setCurrentUser({ ...currentUser, contactVisibility: newVisibility });
+          if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
+          timeDebounceRef.current = setTimeout(() => {
+            api.profile.update({ contactVisibility: newVisibility }).catch(console.error);
+          }, 500);
         };
 
         return (
@@ -1480,7 +1502,7 @@ export default function App() {
                           <input 
                             type="time" 
                             value={visibility.startTime}
-                            onChange={(e) => updateVisibility({ startTime: e.target.value })}
+                            onChange={(e) => updateVisibilityDebounced({ startTime: e.target.value })}
                             className="w-full h-16 bg-white border-2 border-slate-100 rounded-3xl px-6 font-black text-2xl text-secondary focus:border-primary outline-none transition-all shadow-inner"
                           />
                         </div>
@@ -1489,7 +1511,7 @@ export default function App() {
                           <input 
                             type="time" 
                             value={visibility.endTime}
-                            onChange={(e) => updateVisibility({ endTime: e.target.value })}
+                            onChange={(e) => updateVisibilityDebounced({ endTime: e.target.value })}
                             className="w-full h-16 bg-white border-2 border-slate-100 rounded-3xl px-6 font-black text-2xl text-secondary focus:border-primary outline-none transition-all shadow-inner"
                           />
                         </div>
@@ -1629,7 +1651,7 @@ export default function App() {
                         console.error("Failed to update listing status:", e);
                       }
                     }}
-                    policy={getContactPolicy(l, currentUser)}
+                    policy={getContactPolicy(l, currentUser, sellerContactCache)}
                     onNavigateToDetails={(listing) => {
                       setSelectedListing(listing);
                       setCurrentView("detalhes");
@@ -1701,7 +1723,7 @@ export default function App() {
             isLoggedIn={!!currentUser}
             onRequireAuth={requireAuth}
             onReport={() => handleOpenReport(selectedListing.id, selectedListing.sellerId, `${selectedListing.species} — ${selectedListing.breed || 'Lote'}`)}
-            policy={getContactPolicy(selectedListing, currentUser)}
+            policy={getContactPolicy(selectedListing, currentUser, sellerContactCache)}
           />
         ) : null;
       case "perfil":

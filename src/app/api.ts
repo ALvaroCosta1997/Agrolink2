@@ -127,6 +127,18 @@ export const profile = {
     const data = await handleResponse(res);
     return data.profile;
   },
+
+  async getSellerVisibility(userId: string): Promise<{
+    enabled: boolean;
+    mode: 'ALWAYS' | 'SCHEDULE';
+    startTime: string;
+    endTime: string;
+  }> {
+    const res = await fetch(`${API_BASE}/seller/${userId}/contact-visibility`, {
+      headers: await headers(),
+    });
+    return handleResponse(res);
+  },
 };
 
 // ══════════════════════════════════════════════════════════════════
