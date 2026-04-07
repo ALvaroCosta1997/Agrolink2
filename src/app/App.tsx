@@ -163,6 +163,8 @@ export default function App() {
   const [sellerContactCache, setSellerContactCache] = useState<Record<string, {
     enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string;
   }>>({});
+  // Ref for debouncing time-picker saves in the contact-control panel
+  const timeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingListing, setEditingListing] =
     useState<Listing | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -1392,7 +1394,6 @@ export default function App() {
         };
 
         // Debounced version for time-picker inputs (500 ms)
-        const timeDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
         const updateVisibilityDebounced = (updates: Partial<typeof visibility>) => {
           if (!currentUser) return;
           const newVisibility = { ...visibility, ...updates };
