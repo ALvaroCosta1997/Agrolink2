@@ -100,7 +100,7 @@ export type ContactPolicy = {
 
 const getContactPolicy = (
   listing: Listing,
-  currentUser: UserType | null,
+  _currentUser: UserType | null,
   sellerContactCache: Record<string, { enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string }> = {}
 ): ContactPolicy => {
   // 1. Resolve Seller Visibility
@@ -111,11 +111,10 @@ const getContactPolicy = (
     endTime: '19:00'
   };
 
-  const isOwner = currentUser && listing.sellerId === currentUser.id;
-
-  const visibility = isOwner && currentUser
-    ? (currentUser.contactVisibility || defaultVisibility)
-    : (sellerContactCache[listing.sellerId] || defaultVisibility);
+  // Always use the SELLER's cached visibility, keyed by listing.sellerId.
+  // Never read from the viewer's own profile — that would apply the wrong
+  // restrictions when someone views another seller's listing.
+  const visibility = sellerContactCache[listing.sellerId] || defaultVisibility;
 
   // 2. Compute Policy
   if (!visibility.enabled) {
@@ -1026,12 +1025,19 @@ export default function App() {
   const navigateToDetails = (listing: Listing) => {
     setSelectedListing(listing);
     setCurrentView("detalhes");
-    // Fetch seller's real contact-visibility if not already cached
+    // Always fetch the SELLER'S contact-visibility from the endpoint,
+    // keyed by listing.sellerId — never use the viewer's own profile.
     const sellerId = listing.sellerId;
-    if (sellerId && sellerId !== currentUser?.id && !sellerContactCache[sellerId]) {
+    if (sellerId) {
       api.profile.getSellerVisibility(sellerId).then((v) => {
         setSellerContactCache(prev => ({ ...prev, [sellerId]: v }));
-      }).catch(() => { /* use default on error */ });
+      }).catch(() => {
+        // On error fall back to safe defaults (show all)
+        setSellerContactCache(prev => ({
+          ...prev,
+          [sellerId]: { enabled: true, mode: 'ALWAYS' as const, startTime: '09:00', endTime: '19:00' }
+        }));
+      });
     }
   };
 
@@ -1384,11 +1390,11 @@ export default function App() {
         const updateVisibility = (updates: Partial<typeof visibility>, silent = false) => {
           if (!currentUser) return;
           const newVisibility = { ...visibility, ...updates };
-          const updatedUser = {
-            ...currentUser,
-            contactVisibility: newVisibility
-          };
+          const updatedUser = { ...currentUser, contactVisibility: newVisibility };
           setCurrentUser(updatedUser);
+          // Also update the seller cache for the owner's own ID so that
+          // the listing detail view reflects the change immediately.
+          setSellerContactCache(prev => ({ ...prev, [currentUser.id]: newVisibility as any }));
           api.profile.update({ contactVisibility: newVisibility }).catch(console.error);
           if (!silent) toast.success("Guardado. Aplicado a todos os anúncios.");
         };
@@ -1398,6 +1404,7 @@ export default function App() {
           if (!currentUser) return;
           const newVisibility = { ...visibility, ...updates };
           setCurrentUser({ ...currentUser, contactVisibility: newVisibility });
+          setSellerContactCache(prev => ({ ...prev, [currentUser.id]: newVisibility as any }));
           if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
           timeDebounceRef.current = setTimeout(() => {
             api.profile.update({ contactVisibility: newVisibility }).catch(console.error);
