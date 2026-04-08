@@ -1271,7 +1271,7 @@ export default function App() {
             </div>
           </div>
         );
-      case "favoritos":
+      case "favoritos": {
         if (!currentUser?.isLoggedIn) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto h-full">
@@ -1411,7 +1411,8 @@ export default function App() {
             )}
           </div>
         );
-      case "meus-anuncios":
+      }
+      case "meus-anuncios": {
         const myAds = listings.filter(
           (l) => l.sellerId === (currentUser?.id || "none"),
         );
@@ -1677,6 +1678,7 @@ export default function App() {
             )}
           </div>
         );
+      }
       case "mensagens":
         if (!currentUser) return null;
         return (
@@ -1741,7 +1743,7 @@ export default function App() {
             policy={getContactPolicy(selectedListing, currentUser, sellerContactCache)}
           />
         ) : null;
-      case "perfil":
+      case "perfil": {
         const myAdsCount = listings.filter(
           (l) => l.sellerId === (currentUser?.id || "none"),
         ).length;
@@ -2059,6 +2061,7 @@ export default function App() {
             </div>
           </div>
         );
+      }
       default:
         return null;
     }
