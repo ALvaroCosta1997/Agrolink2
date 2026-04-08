@@ -503,6 +503,42 @@ export default function App() {
   // currentBounds (state) is only updated when the user clicks "Pesquisar nesta zona".
   const latestBoundsRef = useRef<L.LatLngBounds | null>(null);
 
+  const defaultContactVisibility = {
+    enabled: true,
+    mode: 'ALWAYS' as const,
+    startTime: '09:00',
+    endTime: '19:00',
+  };
+
+  // Defined at component top level so they are never inside a switch/case
+  // and always have stable access to timeDebounceRef.
+  const updateContactVisibility = (
+    updates: Partial<typeof defaultContactVisibility>,
+    silent = false
+  ) => {
+    if (!currentUser) return;
+    const current = currentUser.contactVisibility || defaultContactVisibility;
+    const next = { ...current, ...updates };
+    setCurrentUser({ ...currentUser, contactVisibility: next });
+    setSellerContactCache(prev => ({ ...prev, [currentUser.id]: next }));
+    api.profile.update({ contactVisibility: next }).catch(console.error);
+    if (!silent) toast.success("Guardado. Aplicado a todos os anúncios.");
+  };
+
+  const updateContactVisibilityDebounced = (
+    updates: Partial<typeof defaultContactVisibility>
+  ) => {
+    if (!currentUser) return;
+    const current = currentUser.contactVisibility || defaultContactVisibility;
+    const next = { ...current, ...updates };
+    setCurrentUser({ ...currentUser, contactVisibility: next });
+    setSellerContactCache(prev => ({ ...prev, [currentUser.id]: next }));
+    if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
+    timeDebounceRef.current = setTimeout(() => {
+      api.profile.update({ contactVisibility: next }).catch(console.error);
+    }, 500);
+  };
+
   const isUuid = (value: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
@@ -1380,36 +1416,7 @@ export default function App() {
           (l) => l.sellerId === (currentUser?.id || "none"),
         );
         
-        const visibility = currentUser?.contactVisibility || {
-          enabled: true,
-          mode: 'ALWAYS',
-          startTime: '09:00',
-          endTime: '19:00'
-        };
-
-        const updateVisibility = (updates: Partial<typeof visibility>, silent = false) => {
-          if (!currentUser) return;
-          const newVisibility = { ...visibility, ...updates };
-          const updatedUser = { ...currentUser, contactVisibility: newVisibility };
-          setCurrentUser(updatedUser);
-          // Also update the seller cache for the owner's own ID so that
-          // the listing detail view reflects the change immediately.
-          setSellerContactCache(prev => ({ ...prev, [currentUser.id]: newVisibility as any }));
-          api.profile.update({ contactVisibility: newVisibility }).catch(console.error);
-          if (!silent) toast.success("Guardado. Aplicado a todos os anúncios.");
-        };
-
-        // Debounced version for time-picker inputs (500 ms)
-        const updateVisibilityDebounced = (updates: Partial<typeof visibility>) => {
-          if (!currentUser) return;
-          const newVisibility = { ...visibility, ...updates };
-          setCurrentUser({ ...currentUser, contactVisibility: newVisibility });
-          setSellerContactCache(prev => ({ ...prev, [currentUser.id]: newVisibility as any }));
-          if (timeDebounceRef.current) clearTimeout(timeDebounceRef.current);
-          timeDebounceRef.current = setTimeout(() => {
-            api.profile.update({ contactVisibility: newVisibility }).catch(console.error);
-          }, 500);
-        };
+        const visibility = currentUser?.contactVisibility || defaultContactVisibility;
 
         return (
           <div className="p-6 md:p-10 max-w-5xl mx-auto flex flex-col gap-8 pb-32">
@@ -1463,7 +1470,7 @@ export default function App() {
                     </p>
                   </div>
                   <button 
-                    onClick={() => updateVisibility({ enabled: !visibility.enabled })}
+                    onClick={() => updateContactVisibility({ enabled: !visibility.enabled })}
                     className={cn(
                       "w-24 h-12 rounded-full p-1 transition-all duration-300 relative",
                       visibility.enabled ? "bg-primary" : "bg-slate-200"
@@ -1489,7 +1496,7 @@ export default function App() {
                         ].map((mode) => (
                           <button
                             key={mode.id}
-                            onClick={() => updateVisibility({ mode: mode.id as any })}
+                            onClick={() => updateContactVisibility({ mode: mode.id as any })}
                             className={cn(
                               "flex-1 py-4 px-6 rounded-[20px] font-black text-sm uppercase tracking-widest transition-all",
                               visibility.mode === mode.id 
@@ -1510,7 +1517,7 @@ export default function App() {
                           <input 
                             type="time" 
                             value={visibility.startTime}
-                            onChange={(e) => updateVisibilityDebounced({ startTime: e.target.value })}
+                            onChange={(e) => updateContactVisibilityDebounced({ startTime: e.target.value })}
                             className="w-full h-16 bg-white border-2 border-slate-100 rounded-3xl px-6 font-black text-2xl text-secondary focus:border-primary outline-none transition-all shadow-inner"
                           />
                         </div>
@@ -1519,7 +1526,7 @@ export default function App() {
                           <input 
                             type="time" 
                             value={visibility.endTime}
-                            onChange={(e) => updateVisibilityDebounced({ endTime: e.target.value })}
+                            onChange={(e) => updateContactVisibilityDebounced({ endTime: e.target.value })}
                             className="w-full h-16 bg-white border-2 border-slate-100 rounded-3xl px-6 font-black text-2xl text-secondary focus:border-primary outline-none transition-all shadow-inner"
                           />
                         </div>
