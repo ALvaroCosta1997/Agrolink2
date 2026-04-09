@@ -783,6 +783,23 @@ export default function App() {
 
         setListings(serverListings);
 
+        // Batch-fetch contact visibility for every unique seller so the
+        // explore/sidebar listing cards reflect the seller's real settings
+        // without requiring the user to open each listing detail page.
+        // Fired in parallel — each resolves independently and triggers a
+        // targeted cache update; Da() has safe defaults so missing entries are fine.
+        const uniqueSellerIds = [
+          ...new Set(serverListings.map((l) => l.sellerId).filter(Boolean)),
+        ];
+        uniqueSellerIds.forEach((sellerId) => {
+          api.profile
+            .getSellerVisibility(sellerId)
+            .then((vis) =>
+              setSellerContactCache((prev) => ({ ...prev, [sellerId]: vis }))
+            )
+            .catch(() => {});
+        });
+
         // 4. Enrich chats with listing photo URLs (now that serverListings has photos merged in)
         const FALLBACK_PHOTO = 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&q=80&w=800';
         setChats(pendingChats.map((chat) => {
