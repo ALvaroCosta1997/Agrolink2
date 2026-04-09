@@ -129,21 +129,27 @@ app.put(`${PREFIX}/profile`, async (c) => {
     const updated = { ...existing, ...updates, id: user.id };
     await kv.set(`profile:${user.id}`, updated);
 
-    // Mirror contact-visibility fields to the profiles Postgres table so
-    // other users can read them without service-role access to the KV store.
+    // Mirror contact-visibility fields to the profiles Postgres table.
+    // The KV blob is the primary source of truth; the Postgres mirror is
+    // kept in sync as a secondary store for analytics / future queries.
     const cv = updated.contactVisibility;
     if (cv !== undefined) {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
       );
-      await supabase.from("profiles").upsert({
+      const { error: upsertErr } = await supabase.from("profiles").upsert({
         id: user.id,
         show_contacts:    cv.enabled ?? true,
         contact_schedule: cv.mode === "SCHEDULE" ? "schedule" : "always",
         contact_from:     cv.startTime || "09:00",
         contact_until:    cv.endTime   || "19:00",
       }, { onConflict: "id" });
+      if (upsertErr) {
+        // Log the error but do NOT fail the request — the KV store is already
+        // updated and is the authoritative source for visibility queries.
+        console.log("Profile upsert error (non-critical):", upsertErr.message);
+      }
     }
 
     return c.json({ profile: updated });
@@ -155,9 +161,27 @@ app.put(`${PREFIX}/profile`, async (c) => {
 
 // ── Public: fetch a seller's contact-visibility settings ─────────
 // No auth required — only exposes the 4 contact-governance fields.
+// Primary source: KV store profile blob (always up-to-date).
+// Fallback: profiles Postgres table (may lag if upsert failed).
 app.get(`${PREFIX}/seller/:userId/contact-visibility`, async (c) => {
   try {
     const userId = c.req.param("userId");
+
+    // 1. Try the KV store first — this is updated synchronously on every
+    //    profile PUT and is always the authoritative value.
+    const kvProfile = await kv.get(`profile:${userId}`);
+    if (kvProfile?.contactVisibility) {
+      const cv = kvProfile.contactVisibility;
+      return c.json({
+        enabled:   cv.enabled   ?? true,
+        mode:      cv.mode      === "SCHEDULE" ? "SCHEDULE" : "ALWAYS",
+        startTime: (cv.startTime || "09:00").slice(0, 5),
+        endTime:   (cv.endTime   || "19:00").slice(0, 5),
+      });
+    }
+
+    // 2. Fall back to the Postgres profiles table (e.g. for users whose
+    //    profile was created before the KV blob existed).
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -168,7 +192,7 @@ app.get(`${PREFIX}/seller/:userId/contact-visibility`, async (c) => {
       .eq("id", userId)
       .maybeSingle();
 
-    // If no row yet, return safe defaults (show everything).
+    // 3. If no row either, return safe defaults (show everything).
     return c.json({
       enabled:   data?.show_contacts    ?? true,
       mode:      data?.contact_schedule === "schedule" ? "SCHEDULE" : "ALWAYS",
