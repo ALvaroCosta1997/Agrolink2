@@ -36,6 +36,7 @@ export interface Listing {
   };
   createdAt: string;
   tags?: string[];
+  priceMode?: 'FIXED' | 'CONSULT';
   status: 'Ativo' | 'Pausado' | 'Vendido';
   sellerId: string;
   viewed?: boolean;

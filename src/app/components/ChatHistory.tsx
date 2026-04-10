@@ -3,7 +3,8 @@ import { Search, MessageCircle, Phone, ArrowLeft, Send, Sparkles, Trash2, Filter
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Chat, User } from '../types';
+import { Chat, ChatMessage, User } from '../types';
+import * as api from '../api';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 
@@ -36,6 +37,8 @@ export function ChatHistory({
   onUpdateDraft,
   onReport,
 }: ChatHistoryProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [inputText, setInputText] = useState('');
   const [showDraftSettings, setShowDraftSettings] = useState(false);
   const [draftInput, setDraftInput] = useState(currentUser?.draftMessage || '');
@@ -46,19 +49,60 @@ export function ChatHistory({
 
   const activeChat = chats.find(c => c.id === selectedChatId);
 
-  // Effect to populate draft message when a new chat starts
+  // Load messages + realtime subscription when active chat changes
   useEffect(() => {
-    if (activeChat && activeChat.messages.length === 0 && currentUser && activeChat.buyerId === currentUser.id) {
+    if (!selectedChatId) {
+      setMessages([]);
+      return;
+    }
+
+    let cancelled = false;
+    setMessages([]);
+    setMessagesLoading(true);
+
+    api.chats.getMessages(selectedChatId)
+      .then((msgs) => { if (!cancelled) setMessages(msgs); })
+      .catch(console.error)
+      .finally(() => { if (!cancelled) setMessagesLoading(false); });
+
+    const channel = api.supabase
+      .channel(`chat-messages-${selectedChatId}`)
+      .on('postgres_changes' as any, {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `chat_id=eq.${selectedChatId}`,
+      }, (payload: any) => {
+        const row = payload.new;
+        if (row.sender_id === currentUser?.id) return; // own messages shown optimistically
+        setMessages(prev => [...prev, {
+          id: row.id,
+          text: row.text,
+          senderId: row.sender_id,
+          timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }]);
+      })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      api.supabase.removeChannel(channel);
+    };
+  }, [selectedChatId]);
+
+  // Populate draft message when a new (empty) chat starts
+  useEffect(() => {
+    if (!activeChat || messagesLoading) return;
+    if (messages.length === 0 && currentUser && activeChat.buyerId === currentUser.id) {
       const listingContext = activeChat.listingTitle;
       const processedMessage = currentUser.draftMessage.includes("{anuncio}")
         ? currentUser.draftMessage.replace("{anuncio}", listingContext)
         : `Olá! Estou interessado no seu anúncio "${listingContext}". ${currentUser.draftMessage}`;
-      
       setInputText(processedMessage);
     } else {
       setInputText('');
     }
-  }, [selectedChatId, currentUser?.id, currentUser?.draftMessage, activeChat]);
+  }, [selectedChatId, messages.length, messagesLoading, currentUser?.id, currentUser?.draftMessage]);
 
   const [filterType, setFilterType] = useState<'compra' | 'venda'>('compra');
 
@@ -100,7 +144,14 @@ export function ChatHistory({
   }, [chats, searchQuery, filterStatus, sortOrder, filterType, currentUser?.id]);
 
   const handleSend = () => {
-    if (!inputText.trim() || !selectedChatId) return;
+    if (!inputText.trim() || !selectedChatId || !currentUser) return;
+    const optimisticMsg: ChatMessage = {
+      id: `temp_${Date.now()}`,
+      text: inputText,
+      senderId: currentUser.id,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
     onSendMessage(selectedChatId, inputText);
     setInputText('');
   };
@@ -169,7 +220,7 @@ export function ChatHistory({
         </div>
 
           <div className="mt-4 flex flex-col gap-4">
-            {activeChat.messages.map((msg) => {
+            {messages.map((msg) => {
               const isMe = currentUser && msg.senderId === currentUser.id;
               return (
                 <motion.div 

@@ -390,6 +390,7 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
       },
       createdAt: new Date().toISOString(),
       tags: formData.tags,
+      priceMode: formData.priceType === 'consulta' ? 'CONSULT' : 'FIXED',
       status: 'Ativo',
       sellerId: currentUser?.id || 'pending'
     };

@@ -656,31 +656,20 @@ export default function App() {
 
   const handleSendMessage = async (chatId: string, text: string) => {
     if (!currentUser) return;
-    // Optimistic update
+    const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    // Update local chats state for list preview only
     setChats((prev) =>
       prev.map((c) => {
         if (c.id === chatId) {
           return {
             ...c,
             lastUpdate: new Date().toISOString(),
-            messages: [
-              ...c.messages,
-              {
-                id: `msg_${Date.now()}`,
-                text,
-                senderId: currentUser.id,
-                timestamp: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              },
-            ],
+            messages: [{ id: `temp_${Date.now()}`, text, senderId: currentUser.id, timestamp }],
           };
         }
         return c;
       }),
     );
-    // Persist to backend
     try {
       await api.chats.sendMessage(chatId, text);
     } catch (e) {
@@ -957,16 +946,21 @@ export default function App() {
   const toggleFavorite = (id: string) => {
     requireAuth(() => {
       setFavorites((prev) => {
-        const next = prev.includes(id)
+        const isRemoving = prev.includes(id);
+        const next = isRemoving
           ? prev.filter((fid) => fid !== id)
           : [...prev, id];
-        // Persist to backend
-        api.favorites.save(next).catch((e) =>
-          console.error("Failed to save favorites:", e)
-        );
-        if (!prev.includes(id))
+        if (isRemoving) {
+          api.favorites.remove(id).catch((e) =>
+            console.error("Failed to remove favorite:", e)
+          );
+          toast.info("Removido dos favoritos");
+        } else {
+          api.favorites.add(id).catch((e) =>
+            console.error("Failed to add favorite:", e)
+          );
           toast.success("Guardado nos favoritos");
-        else toast.info("Removido dos favoritos");
+        }
         return next;
       });
     });

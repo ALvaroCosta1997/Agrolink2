@@ -18,9 +18,11 @@ interface FavoriteCardProps {
 
 export function FavoriteCard({ listing, onRemove, onClick, onChat, onCall, onWhatsApp, isLoggedIn, policy }: FavoriteCardProps) {
   const totalQty = listing.maleQty + listing.femaleQty;
-  const priceDisplay = typeof listing.price === 'string' 
-    ? listing.price 
-    : `${listing.price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}€`;
+  const priceDisplay = listing.price == null
+    ? 'Ver anúncio'
+    : typeof listing.price === 'string'
+      ? listing.price
+      : `${listing.price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}€`;
 
   const phoneHref = `tel:${listing.contacts.phone}`;
   const whatsappHref = `https://wa.me/${listing.contacts.phone.replace(/\s/g, '')}`;
