@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'AgrowLink <onboarding@resend.dev>',
+        from: 'AgrowLink <notifications@agrowlink.app>',
         to: [receiver_email],
         subject: `Nova mensagem de ${sender_name} — AgrowLink`,
         html,
