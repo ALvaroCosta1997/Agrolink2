@@ -12,3 +12,12 @@ supabase/functions/.env
 # OS
 .DS_Store
 Thumbs.db
+
+.vercel
+.env*.local
+
+# Local Claude Code settings (machine-specific, not for the repo)
+.claude/settings.local.json
+
+# Supabase temp files (local CLI artefacts)
+supabase/.temp/
