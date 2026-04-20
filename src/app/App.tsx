@@ -180,7 +180,6 @@ export default function App() {
   const [profileSubPage, setProfileSubPage] = useState<"ajuda" | "seguranca" | "termos" | "admin" | null>(null);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
 
-  const ADMIN_EMAIL = "av.pereiradacosta@gmail.com";
   const [reportTarget, setReportTarget] = useState<{
     listingId?: string;
     listingTitle?: string;
@@ -357,6 +356,7 @@ export default function App() {
         id: userId,
         name: profileData?.name || email.split('@')[0],
         email: email,
+        role: profileData?.role,
         isLoggedIn: true,
         draftMessage: profileData?.draftMessage || "Boa tarde, vi o seu anúncio no AgrowLink e estou interessado. Ainda está disponível?",
         mode: profileData?.mode || 'AMBOS',
@@ -701,6 +701,7 @@ export default function App() {
             id: session.user.id,
             name: profileData?.name || session.user.email?.split("@")[0] || "Utilizador",
             email: session.user.email || "",
+            role: profileData?.role,
             isLoggedIn: true,
             draftMessage:
               profileData?.draftMessage ||
@@ -834,13 +835,13 @@ export default function App() {
 
   // Fetch pending reports count for admin badge
   useEffect(() => {
-    if (currentUser?.email !== ADMIN_EMAIL) return;
+    if (currentUser?.role !== 'admin') return;
     api.supabase
       .from("reports")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .then(({ count }) => setPendingReportsCount(count ?? 0));
-  }, [currentUser?.email]);
+  }, [currentUser?.role]);
 
   const filteredListings = useMemo(() => {
     const filtered = listings.filter((l) => {
@@ -2031,7 +2032,7 @@ export default function App() {
                 <ChevronLeft className="w-6 h-6 rotate-180 text-primary/30" />
               </button>
 
-              {currentUser?.email === ADMIN_EMAIL && (
+              {currentUser?.role === 'admin' && (
                 <button
                   onClick={() => setProfileSubPage("admin")}
                   className="w-full text-left px-8 py-6 bg-red-50 border-2 border-red-200 rounded-[32px] flex items-center justify-between hover:border-red-300 transition-all active:scale-[0.98]"
@@ -2322,7 +2323,7 @@ export default function App() {
             <TermsPage onBack={() => setProfileSubPage(null)} />
           </motion.div>
         )}
-        {profileSubPage === "admin" && currentUser?.email === ADMIN_EMAIL && (
+        {profileSubPage === "admin" && currentUser?.role === 'admin' && (
           <motion.div key="admin" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.2 }}>
             <AdminReportsPage onBack={() => { setProfileSubPage(null); setPendingReportsCount(0); api.supabase.from("reports").select("id", { count: "exact", head: true }).eq("status", "pending").then(({ count }) => setPendingReportsCount(count ?? 0)); }} />
           </motion.div>

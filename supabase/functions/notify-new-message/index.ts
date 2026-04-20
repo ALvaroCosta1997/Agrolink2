@@ -1,5 +1,6 @@
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
-const INTERNAL_SECRET = Deno.env.get('INTERNAL_SECRET') ?? 'agrowlink-internal-2026';
+// No fallback: if this env var is missing the function must fail loudly, not silently accept a public string.
+const INTERNAL_SECRET = Deno.env.get('INTERNAL_SECRET')!;
 
 Deno.serve(async (req) => {
   // Verify the request comes from our own database trigger
@@ -67,7 +68,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'AgrowLink <onboarding@resend.dev>',
+        from: 'AgrowLink <notifications@agrowlink.app>',
         to: [receiver_email],
         subject: `Nova mensagem de ${sender_name} — AgrowLink`,
         html,

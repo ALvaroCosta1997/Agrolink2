@@ -16,6 +16,7 @@ const rowToProfile = (row: any): UserType => ({
   id: row.id,
   name: row.name || "",
   email: row.email || "",
+  role: row.role === 'admin' ? 'admin' : 'user',
   isLoggedIn: true,
   phoneNumber: row.phone_number || "",
   phoneCountry: row.phone_country || "+351",
