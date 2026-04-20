@@ -1,3 +1,7 @@
+-- NOTE: Applied via MCP apply_migration because local migration history was out of sync
+-- with remote (16 dashboard-applied migrations not in repo). Resolve drift separately
+-- before next CLI push.
+--
 -- ============================================================
 -- Emergency hotfix — 2026-04-18
 -- Four changes, in order:
