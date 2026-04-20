@@ -180,7 +180,7 @@ export default function App() {
   const [profileSubPage, setProfileSubPage] = useState<"ajuda" | "seguranca" | "termos" | "admin" | null>(null);
   const [pendingReportsCount, setPendingReportsCount] = useState(0);
 
-const [reportTarget, setReportTarget] = useState<{
+  const [reportTarget, setReportTarget] = useState<{
     listingId?: string;
     listingTitle?: string;
     reportedUserId?: string;
