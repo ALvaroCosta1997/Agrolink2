@@ -356,6 +356,7 @@ export default function App() {
         id: userId,
         name: profileData?.name || email.split('@')[0],
         email: email,
+        role: profileData?.role,
         isLoggedIn: true,
         draftMessage: profileData?.draftMessage || "Boa tarde, vi o seu anúncio no AgrowLink e estou interessado. Ainda está disponível?",
         mode: profileData?.mode || 'AMBOS',
@@ -700,6 +701,7 @@ export default function App() {
             id: session.user.id,
             name: profileData?.name || session.user.email?.split("@")[0] || "Utilizador",
             email: session.user.email || "",
+            role: profileData?.role,
             isLoggedIn: true,
             draftMessage:
               profileData?.draftMessage ||
@@ -839,7 +841,7 @@ export default function App() {
       .select("id", { count: "exact", head: true })
       .eq("status", "pending")
       .then(({ count }) => setPendingReportsCount(count ?? 0));
-  }, [currentUser?.email]);
+  }, [currentUser?.role]);
 
   const filteredListings = useMemo(() => {
     const filtered = listings.filter((l) => {
