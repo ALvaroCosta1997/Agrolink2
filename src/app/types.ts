@@ -57,6 +57,7 @@ export interface User {
   region?: string;
   mode: UsageMode;
   email?: string;
+  role?: 'user' | 'admin';
   isFirstLogin?: boolean;
   hasSeenSurvey?: boolean;
   phoneNumber?: string;
