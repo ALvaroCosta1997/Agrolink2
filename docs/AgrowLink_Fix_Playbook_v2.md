@@ -160,13 +160,13 @@ These are the items that could bite you the moment a real user — or worse, a m
 
 The fix is one button click.
 
-- [ ] Open https://supabase.com/dashboard/project/odznjlpzknczzutgirvk/functions
-- [ ] You'll see three functions. Find `make-server-3243d623`.
-- [ ] Click on it.
-- [ ] Click the **⋮ (three dots) → Delete function** (top right or in the settings tab).
-- [ ] Type the function name to confirm. Delete.
-- [ ] Repeat for the function called just **`server`** (also dead code).
-- [ ] **Keep** `notify-new-message`. It's the email function and is live.
+- [x] Open https://supabase.com/dashboard/project/odznjlpzknczzutgirvk/functions
+- [x] You'll see three functions. Find `make-server-3243d623`.
+- [x] Click on it.
+- [x] Click the **⋮ (three dots) → Delete function** (top right or in the settings tab).
+- [x] Type the function name to confirm. Delete.
+- [x] Repeat for the function called just **`server`** (also dead code).
+- [x] **Keep** `notify-new-message`. It's the email function and is live.
 
 ### P1.1 verification (Anthropic Claude)
 
