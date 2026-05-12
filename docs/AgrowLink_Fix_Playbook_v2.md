@@ -123,30 +123,30 @@ Paste this exact message:
 
 > **Hi Claude Code. Before we begin Phase 1 of the v2 playbook, please do a health check: run `git status` to confirm a clean tree, `git log --oneline -5` to show recent commits, `pnpm install` to refresh dependencies, then `pnpm build` to confirm the project builds. Report any errors but don't try to fix them yet.**
 
-- [ ] If `git status` says anything other than "nothing to commit, working tree clean", **stop**. Tell Claude Code: "There are uncommitted changes. Please show me what they are with `git diff`, and recommend whether to commit, stash, or discard them."
-- [ ] If `pnpm install` errors, ask: "What's failing and how do we fix it?"
-- [ ] If `pnpm build` errors, ask the same. We need a green build before changing anything.
+- [x] If `git status` says anything other than "nothing to commit, working tree clean", **stop**. Tell Claude Code: "There are uncommitted changes. Please show me what they are with `git diff`, and recommend whether to commit, stash, or discard them."
+- [x] If `pnpm install` errors, ask: "What's failing and how do we fix it?"
+- [x] If `pnpm build` errors, ask the same. We need a green build before changing anything.
 
 ### 0.3 Create the v2 branch (Claude Code)
 
 > **Please create and switch to a new branch called `cleanup/v2-launch-prep`. Confirm with `git status` after.**
 
-- [ ] Confirm Claude Code reports "Switched to a new branch 'cleanup/v2-launch-prep'".
+- [x] Confirm Claude Code reports "Switched to a new branch 'cleanup/v2-launch-prep'".
 
 ### 0.4 Confirm the v2 playbook is in the repo (you)
 
 You probably already placed this file in `docs/` when you started reading it. Verify:
 
-- [ ] Open `Agrolink2/docs/` in your file explorer.
-- [ ] Confirm `AgrowLink_Fix_Playbook_v2.md` is there, alongside the April originals (`AgrowLink_Fix_Playbook.md` and `AgrowLink_Code_Review.md`).
-- [ ] If not, drop the file in now.
-- [ ] Either way: `git status` in PowerShell. If the playbook is untracked, ask Claude Code: **"Please commit `docs/AgrowLink_Fix_Playbook_v2.md` with message `docs: add v2 playbook` so future Claude Code sessions can read it."**
+- [x] Open `Agrolink2/docs/` in your file explorer.
+- [x] Confirm `AgrowLink_Fix_Playbook_v2.md` is there, alongside the April originals (`AgrowLink_Fix_Playbook.md` and `AgrowLink_Code_Review.md`).
+- [x] If not, drop the file in now.
+- [x] Either way: `git status` in PowerShell. If the playbook is untracked, ask Claude Code: **"Please commit `docs/AgrowLink_Fix_Playbook_v2.md` with message `docs: add v2 playbook` so future Claude Code sessions can read it."**
 
 ### 0.5 Ground Claude Code in this v2 playbook (Claude Code)
 
 > **Please read `docs/AgrowLink_Fix_Playbook_v2.md` in full. It supersedes the April playbook. After reading, list the Phase 1 steps in this v2 in one line each, so I know we're aligned. Do not make any changes yet.**
 
-- [ ] Sanity-check Claude Code's summary matches Phase 1 below.
+- [x] Sanity-check Claude Code's summary matches Phase 1 below.
 
 ---
 
