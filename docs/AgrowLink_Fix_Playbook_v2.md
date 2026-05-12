@@ -114,8 +114,8 @@ A month has passed. Tools and credentials may have rotted. Let's check before we
 ### 0.1 Open the repo (Claude Code)
 
 - [x] Open PowerShell.
-- [ ] Type `cd C:\Users\TwinPikes.TWINPIKES-078\Desktop\Agrolink2` and press Enter.
-- [ ] Type `claude` and press Enter. Wait for Claude Code to start.
+- [x] Type `cd C:\Users\TwinPikes.TWINPIKES-078\Desktop\Agrolink2` and press Enter.
+- [x] Type `claude` and press Enter. Wait for Claude Code to start.
 
 ### 0.2 Confirm everything still works (Claude Code)
 
