@@ -1,16 +1,24 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const ALLOWED_ORIGIN = 'https://agrowlink.app'
+const PREVIEW_PATTERN = /^https:\/\/agrolink2-[^.]+\.vercel\.app$/
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+function resolveAllowedOrigin(origin: string | null): string | null {
+  if (!origin) return null
+  if (origin === 'https://agrowlink.app') return origin
+  if (PREVIEW_PATTERN.test(origin)) return origin
+  return null
 }
 
 Deno.serve(async (req) => {
+  const allowedOrigin = resolveAllowedOrigin(req.headers.get('Origin'))
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': allowedOrigin ?? '',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { status: allowedOrigin ? 204 : 403, headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {
