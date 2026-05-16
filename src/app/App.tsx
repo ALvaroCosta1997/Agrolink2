@@ -98,57 +98,12 @@ export type ContactPolicy = {
   endTime?: string;
 };
 
+// Temporarily disabled in v2 launch playbook P1.3 — re-enable when sellerContactCache hydration bug is fixed.
 const getContactPolicy = (
-  listing: Listing,
+  _listing: Listing,
   _currentUser: UserType | null,
-  sellerContactCache: Record<string, { enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string }> = {}
+  _sellerContactCache: Record<string, { enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string }> = {}
 ): ContactPolicy => {
-  // 1. Resolve Seller Visibility
-  const defaultVisibility = {
-    enabled: true,
-    mode: 'ALWAYS' as const,
-    startTime: '09:00',
-    endTime: '19:00'
-  };
-
-  // Always use the SELLER's cached visibility, keyed by listing.sellerId.
-  // Never read from the viewer's own profile — that would apply the wrong
-  // restrictions when someone views another seller's listing.
-  const visibility = sellerContactCache[listing.sellerId] || defaultVisibility;
-
-  // 2. Compute Policy
-  if (!visibility.enabled) {
-    return { showDirectContact: false, reason: 'OFF' };
-  }
-
-  if (visibility.mode === 'ALWAYS') {
-    return { showDirectContact: true, reason: 'ON' };
-  }
-
-  // Schedule check (Portugal Time)
-  const now = new Date();
-  const options = { timeZone: 'Europe/Lisbon', hour12: false, hour: '2-digit', minute: '2-digit' } as const;
-  const currentTimeStr = now.toLocaleTimeString('pt-PT', options);
-  
-  const [currentH, currentM] = currentTimeStr.split(':').map(Number);
-  const [startH, startM] = visibility.startTime.split(':').map(Number);
-  const [endH, endM] = visibility.endTime.split(':').map(Number);
-  
-  const currentTotal = currentH * 60 + currentM;
-  const startTotal = startH * 60 + startM;
-  const endTotal = endH * 60 + endM;
-  
-  const inHours = currentTotal >= startTotal && currentTotal <= endTotal;
-
-  if (!inHours) {
-    return { 
-      showDirectContact: false, 
-      reason: 'OUT_OF_HOURS', 
-      startTime: visibility.startTime, 
-      endTime: visibility.endTime 
-    };
-  }
-
   return { showDirectContact: true, reason: 'ON' };
 };
 
@@ -286,42 +241,33 @@ export default function App() {
     if (!currentUser || deleteConfirmText !== "ELIMINAR") return;
     setIsDeletingAccount(true);
     try {
-      const userId = currentUser.id;
+      const session = await api.auth.getSession();
+      if (!session?.access_token) throw new Error("No active session");
 
-      // a. Delete listing_photos for user's listings
-      const { data: userListings } = await api.supabase
-        .from("listings").select("id").eq("seller_id", userId);
-      if (userListings && userListings.length > 0) {
-        const ids = userListings.map((l: any) => l.id);
-        await api.supabase.from("listing_photos").delete().in("listing_id", ids);
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
       }
 
-      // b. Delete listings
-      await api.supabase.from("listings").delete().eq("seller_id", userId);
-
-      // c. Delete chat_messages
-      await api.supabase.from("chat_messages").delete().eq("sender_id", userId);
-
-      // d. Delete chats (buyer or seller)
-      await api.supabase.from("chats").delete().eq("buyer_id", userId);
-      await api.supabase.from("chats").delete().eq("seller_id", userId);
-
-      // e. Delete favorites
-      await api.supabase.from("favorites").delete().eq("user_id", userId);
-
-      // f. Delete reports
-      await api.supabase.from("reports").delete().eq("reporter_id", userId);
-
-      // g. Delete profile
-      await api.supabase.from("profiles").delete().eq("id", userId);
-
-      // h. Sign out (full auth deletion requires service_role — handled manually)
-      await api.auth.logout();
-
+      // Auth record is already gone server-side; logout clears local session only.
+      await api.auth.logout().catch(() => {});
+      const deletedId = currentUser.id;
       setCurrentUser(null);
+      setAccessToken(null);
       setFavorites([]);
       setChats([]);
-      setListings((prev) => prev.filter((l) => l.sellerId !== userId));
+      setListings((prev) => prev.filter((l) => l.sellerId !== deletedId));
       setCurrentView("explorar");
       setShowDeleteModal(false);
       toast.success("Conta eliminada com sucesso.");
@@ -1451,7 +1397,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* CONTROLO DE CONTACTOS PANEL */}
+            {/* Temporarily disabled in v2 launch playbook P1.3 — re-enable when sellerContactCache hydration bug is fixed. */}
+            {false && (
             <div className="bg-white rounded-[40px] border-4 border-primary/10 shadow-xl overflow-hidden">
               <div className="bg-primary/5 p-6 border-b-2 border-primary/5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -1587,6 +1534,7 @@ export default function App() {
                 </div>
               </div>
             </div>
+            )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 p-6 rounded-[32px] border-2 border-slate-100">
               <div className="flex-1">
