@@ -247,13 +247,13 @@ The edge function needs to be deployed manually because we don't have the Supaba
 
 **Test it works:**
 
-- [ ] On https://agrowlink.app, sign up a brand new test account with a throwaway Gmail (e.g. yourname+test@gmail.com).
-- [ ] Log in as that test account.
-- [ ] Go to Perfil → Eliminar conta.
-- [ ] Confirm the deletion.
-- [ ] Try to sign back in with that same email. It should say "user not found".
-- [ ] Try to sign UP again with that same email. It should let you (proving the auth record was wiped).
-- [ ] **If the second "sign up" step fails because the auth record wasn't wiped:** ping me on claude.ai with `"Please check delete-account edge function logs for the last 1 hour"`. I'll pull the logs and tell you why `auth.admin.deleteUser` failed (usually a permissions or wrong-key issue).
+- [x] On https://agrowlink.app, sign up a brand new test account with a throwaway Gmail (e.g. yourname+test@gmail.com).
+- [x] Log in as that test account.
+- [x] Go to Perfil → Eliminar conta.
+- [x] Confirm the deletion.
+- [x] Try to sign back in with that same email. It should say "user not found".
+- [x] Try to sign UP again with that same email. It should let you (proving the auth record was wiped).
+- [x] **If the second "sign up" step fails because the auth record wasn't wiped:** ping me on claude.ai with `"Please check delete-account edge function logs for the last 1 hour"`. I'll pull the logs and tell you why `auth.admin.deleteUser` failed (usually a permissions or wrong-key issue).
 
 ### P1.2d — Wire the frontend to use the new endpoint (Claude Code)
 
