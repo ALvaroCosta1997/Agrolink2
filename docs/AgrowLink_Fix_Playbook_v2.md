@@ -208,8 +208,8 @@ Paste:
 >
 > **5. Show me the SQL before applying, and confirm after applying.**
 
-- [ ] Read the SQL. Verify: (a) it declares `caller_id := auth.uid()` and raises if null, (b) it only deletes `chats` (not `chat_messages`) since the FK cascades, (c) it has `SECURITY DEFINER` AND `SET search_path = public, pg_temp`, (d) it revokes from `anon`.
-- [ ] If yes: tell Claude Code **"Looks good. Apply it."**
+- [X] Read the SQL. Verify: (a) it declares `caller_id := auth.uid()` and raises if null, (b) it only deletes `chats` (not `chat_messages`) since the FK cascades, (c) it has `SECURITY DEFINER` AND `SET search_path = public, pg_temp`, (d) it revokes from `anon`.
+- [x] If yes: tell Claude Code **"Looks good. Apply it."**
 
 **Why the deletion order matters:** Postgres foreign keys on this project are configured `ON DELETE CASCADE` (verified). So `DELETE FROM chats` automatically wipes every `chat_message` whose `chat_id` matches — including messages from the OTHER party in that conversation. If we instead deleted `chat_messages WHERE sender_id = caller_id` first, we'd only delete half the messages and leave the other half attached to a chat we're about to delete (which the CASCADE would then clean up anyway). Cleaner to just delete `chats` and let the cascade do its job.
 
@@ -229,19 +229,19 @@ Paste:
 >
 > **Stop and show me the code. Do not deploy.**
 
-- [ ] Read the function. Look for: is the CORS origin set to your domain, not `*`? Does it check the token? Does it wipe the auth user AFTER the data deletion succeeds?
-- [ ] When happy: **"Commit with message: `feat(account): atomic deletion via Postgres function + edge function`"**
+- [x] Read the function. Look for: is the CORS origin set to your domain, not `*`? Does it check the token? Does it wipe the auth user AFTER the data deletion succeeds?
+- [x] When happy: **"Commit with message: `feat(account): atomic deletion via Postgres function + edge function`"**
 
 ### P1.2c — Deploy and test the edge function (Dashboard, 30 min)
 
 The edge function needs to be deployed manually because we don't have the Supabase CLI fully wired.
 
-- [ ] Open https://supabase.com/dashboard/project/odznjlpzknczzutgirvk/functions
-- [ ] Click **Deploy a new function** (or **Create function**).
-- [ ] Name it: `delete-account`
-- [ ] Copy the contents of `supabase/functions/delete-account/index.ts` from your repo into the editor.
-- [ ] Set **Verify JWT** to **OFF** (this function handles its own auth).
-- [ ] Click **Deploy**.
+- [x] Open https://supabase.com/dashboard/project/odznjlpzknczzutgirvk/functions
+- [x] Click **Deploy a new function** (or **Create function**).
+- [x] Name it: `delete-account`
+- [x] Copy the contents of `supabase/functions/delete-account/index.ts` from your repo into the editor.
+- [x] Set **Verify JWT** to **OFF** (this function handles its own auth).
+- [x] Click **Deploy**.
 
 **A note about secrets:** Supabase automatically provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to every edge function in the hosted environment. You do NOT need to add them as secrets. Your existing `notify-new-message` function uses them this way.
 
@@ -261,8 +261,8 @@ Paste:
 
 > **Now update the frontend to call the new edge function instead of the seven inline deletes. In `src/app/App.tsx`, find the `handleDeleteAccount` function. Replace its body with a single POST to `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account` with the bearer token, and handle success/error with toasts. Show me the diff before committing.**
 
-- [ ] Review the diff. The new function should be ~15 lines instead of 50.
-- [ ] **"Commit with message: `fix(account): frontend uses new atomic delete endpoint`"**
+- [x] Review the diff. The new function should be ~15 lines instead of 50.
+- [x] **"Commit with message: `fix(account): frontend uses new atomic delete endpoint`"**
 
 ### P1.2 verification (Anthropic Claude)
 
