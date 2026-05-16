@@ -98,57 +98,12 @@ export type ContactPolicy = {
   endTime?: string;
 };
 
+// Temporarily disabled in v2 launch playbook P1.3 — re-enable when sellerContactCache hydration bug is fixed.
 const getContactPolicy = (
-  listing: Listing,
+  _listing: Listing,
   _currentUser: UserType | null,
-  sellerContactCache: Record<string, { enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string }> = {}
+  _sellerContactCache: Record<string, { enabled: boolean; mode: 'ALWAYS' | 'SCHEDULE'; startTime: string; endTime: string }> = {}
 ): ContactPolicy => {
-  // 1. Resolve Seller Visibility
-  const defaultVisibility = {
-    enabled: true,
-    mode: 'ALWAYS' as const,
-    startTime: '09:00',
-    endTime: '19:00'
-  };
-
-  // Always use the SELLER's cached visibility, keyed by listing.sellerId.
-  // Never read from the viewer's own profile — that would apply the wrong
-  // restrictions when someone views another seller's listing.
-  const visibility = sellerContactCache[listing.sellerId] || defaultVisibility;
-
-  // 2. Compute Policy
-  if (!visibility.enabled) {
-    return { showDirectContact: false, reason: 'OFF' };
-  }
-
-  if (visibility.mode === 'ALWAYS') {
-    return { showDirectContact: true, reason: 'ON' };
-  }
-
-  // Schedule check (Portugal Time)
-  const now = new Date();
-  const options = { timeZone: 'Europe/Lisbon', hour12: false, hour: '2-digit', minute: '2-digit' } as const;
-  const currentTimeStr = now.toLocaleTimeString('pt-PT', options);
-  
-  const [currentH, currentM] = currentTimeStr.split(':').map(Number);
-  const [startH, startM] = visibility.startTime.split(':').map(Number);
-  const [endH, endM] = visibility.endTime.split(':').map(Number);
-  
-  const currentTotal = currentH * 60 + currentM;
-  const startTotal = startH * 60 + startM;
-  const endTotal = endH * 60 + endM;
-  
-  const inHours = currentTotal >= startTotal && currentTotal <= endTotal;
-
-  if (!inHours) {
-    return { 
-      showDirectContact: false, 
-      reason: 'OUT_OF_HOURS', 
-      startTime: visibility.startTime, 
-      endTime: visibility.endTime 
-    };
-  }
-
   return { showDirectContact: true, reason: 'ON' };
 };
 
@@ -1442,7 +1397,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* CONTROLO DE CONTACTOS PANEL */}
+            {/* Temporarily disabled in v2 launch playbook P1.3 — re-enable when sellerContactCache hydration bug is fixed. */}
+            {false && (
             <div className="bg-white rounded-[40px] border-4 border-primary/10 shadow-xl overflow-hidden">
               <div className="bg-primary/5 p-6 border-b-2 border-primary/5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -1578,6 +1534,7 @@ export default function App() {
                 </div>
               </div>
             </div>
+            )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 p-6 rounded-[32px] border-2 border-slate-100">
               <div className="flex-1">
