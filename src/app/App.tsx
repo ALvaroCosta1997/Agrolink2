@@ -286,42 +286,33 @@ export default function App() {
     if (!currentUser || deleteConfirmText !== "ELIMINAR") return;
     setIsDeletingAccount(true);
     try {
-      const userId = currentUser.id;
+      const session = await api.auth.getSession();
+      if (!session?.access_token) throw new Error("No active session");
 
-      // a. Delete listing_photos for user's listings
-      const { data: userListings } = await api.supabase
-        .from("listings").select("id").eq("seller_id", userId);
-      if (userListings && userListings.length > 0) {
-        const ids = userListings.map((l: any) => l.id);
-        await api.supabase.from("listing_photos").delete().in("listing_id", ids);
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
       }
 
-      // b. Delete listings
-      await api.supabase.from("listings").delete().eq("seller_id", userId);
-
-      // c. Delete chat_messages
-      await api.supabase.from("chat_messages").delete().eq("sender_id", userId);
-
-      // d. Delete chats (buyer or seller)
-      await api.supabase.from("chats").delete().eq("buyer_id", userId);
-      await api.supabase.from("chats").delete().eq("seller_id", userId);
-
-      // e. Delete favorites
-      await api.supabase.from("favorites").delete().eq("user_id", userId);
-
-      // f. Delete reports
-      await api.supabase.from("reports").delete().eq("reporter_id", userId);
-
-      // g. Delete profile
-      await api.supabase.from("profiles").delete().eq("id", userId);
-
-      // h. Sign out (full auth deletion requires service_role — handled manually)
-      await api.auth.logout();
-
+      // Auth record is already gone server-side; logout clears local session only.
+      await api.auth.logout().catch(() => {});
+      const deletedId = currentUser.id;
       setCurrentUser(null);
+      setAccessToken(null);
       setFavorites([]);
       setChats([]);
-      setListings((prev) => prev.filter((l) => l.sellerId !== userId));
+      setListings((prev) => prev.filter((l) => l.sellerId !== deletedId));
       setCurrentView("explorar");
       setShowDeleteModal(false);
       toast.success("Conta eliminada com sucesso.");
