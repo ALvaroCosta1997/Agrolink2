@@ -55,6 +55,17 @@ Deno.serve(async (req) => {
     })
   }
 
+  // Delete storage files before the RPC. Orphan storage is recoverable; orphan auth records are not.
+  try {
+    const { data: files } = await adminClient.storage.from('listing-photos').list(user.id, { limit: 1000 })
+    if (files && files.length > 0) {
+      const paths = files.map((f) => `${user.id}/${f.name}`)
+      await adminClient.storage.from('listing-photos').remove(paths)
+    }
+  } catch (storageErr) {
+    console.error('Storage cleanup failed (non-fatal):', storageErr)
+  }
+
   // User-scoped client — passes the JWT so auth.uid() resolves correctly inside SECURITY DEFINER
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
