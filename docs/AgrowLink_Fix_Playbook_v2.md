@@ -295,16 +295,16 @@ Once you've approved the plan:
 
 > **OK, please implement it. Show me the diff before committing. Add a short comment above each disabled block explaining "temporarily disabled in v2 launch playbook — re-enable when the cache-population bug is fixed".**
 
-- [ ] Review the diff. Confirm: settings toggle is hidden, listing buttons always show, comments explain why.
-- [ ] **"Commit with message: `feat(contacts): temporarily disable Controlo de Contactos for launch`"**
+- [x] Review the diff. Confirm: settings toggle is hidden, listing buttons always show, comments explain why.
+- [x] **"Commit with message: `feat(contacts): temporarily disable Controlo de Contactos for launch`"**
 
 ### P1.3c — Test (you)
 
-- [ ] After Claude Code pushes the branch, wait ~2 minutes for Vercel to build a preview.
-- [ ] In your Vercel dashboard, click the preview URL.
-- [ ] Log in as User A (your main account). Confirm the Controlo de Contactos toggle is GONE from your profile.
-- [ ] Open a listing as User A. Confirm WhatsApp and Phone buttons are visible.
-- [ ] Open an incognito window. Sign in as User B (your test account). Open the same listing. Confirm WhatsApp and Phone buttons are visible.
+- [x] After Claude Code pushes the branch, wait ~2 minutes for Vercel to build a preview.
+- [x] In your Vercel dashboard, click the preview URL.
+- [x] Log in as User A (your main account). Confirm the Controlo de Contactos toggle is GONE from your profile.
+- [x] Open a listing as User A. Confirm WhatsApp and Phone buttons are visible.
+- [X] Open an incognito window. Sign in as User B (your test account). Open the same listing. Confirm WhatsApp and Phone buttons are visible.
 
 ---
 
@@ -342,7 +342,7 @@ I'll apply the migration and re-run the advisor to confirm warnings are gone.
 - [ ] Scroll to **Email** → click to expand.
 - [ ] Find **Leaked password protection** (or **Password Strength**).
 - [ ] Toggle **ON**.
-- [ ] Save.
+- [ ] Save. - **Not done as we need to have supabase pro plans!**
 
 ---
 
@@ -355,7 +355,7 @@ I'll apply the migration and re-run the advisor to confirm warnings are gone.
 - [ ] Click the **⚙ Configuration** or **Settings** tab.
 - [ ] Confirm **File size limit** is `5,242,880 bytes (5 MB)`.
 - [ ] Confirm **Allowed MIME types** is `image/jpeg, image/png, image/webp, image/heic`.
-- [ ] If not, set them and save.
+- [ ] If not, set them and save. **Also needed only at Supabase Pro**
 
 ---
 
@@ -375,30 +375,30 @@ I'll find them and confirm whether they're safe to delete. (If they're recent, t
 
 ### Test the live preview
 
-- [ ] Open the Vercel preview URL for the `cleanup/v2-launch-prep` branch.
-- [ ] Run through this manual checklist:
-  - [ ] Sign up a new test account
-  - [ ] Confirm the email link
-  - [ ] Log in
-  - [ ] Publish a listing with 2 photos
-  - [ ] Open the explore page — confirm your listing appears
-  - [ ] Open the listing detail
-  - [ ] Send a chat message from a different incognito account
-  - [ ] Receive the email notification
-  - [ ] Mark as favourite
-  - [ ] Delete the test account
-  - [ ] Try logging in as that account — should fail
-  - [ ] Try signing up with the same email — should work
-- [ ] If anything breaks, paste the error into Claude Code and ask "What went wrong?"
+- [x] Open the Vercel preview URL for the `cleanup/v2-launch-prep` branch.
+- [x] Run through this manual checklist:
+  - [x] Sign up a new test account
+  - [x] Confirm the email link
+  - [x] Log in
+  - [x] Publish a listing with 2 photos
+  - [X] Open the explore page — confirm your listing appears
+  - [x] Open the listing detail
+  - [x] Send a chat message from a different incognito account
+  - [x] Receive the email notification
+  - [x] Mark as favourite
+  - [x] Delete the test account
+  - [x] Try logging in as that account — should fail
+  - [x] Try signing up with the same email — should work
+- [x] If anything breaks, paste the error into Claude Code and ask "What went wrong?"
 
 ### Merge to main (Claude Code)
 
 > **Please push the `cleanup/v2-launch-prep` branch and open a pull request. Include a summary of every commit in the PR description. Use the `gh` CLI if available.**
 
-- [ ] Read the PR description.
-- [ ] Merge the PR on GitHub.com (button: **Merge pull request**).
-- [ ] Wait for the production deploy on Vercel to go green.
-- [ ] Smoke-test the live site one more time.
+- [x] Read the PR description.
+- [x] Merge the PR on GitHub.com (button: **Merge pull request**).
+- [x] Wait for the production deploy on Vercel to go green.
+- [x] Smoke-test the live site one more time.
 
 🎉 **Phase 1 done. The dangerous stuff is gone.** You can launch from here if you wanted — Phases 2 and 3 are about making it robust and maintainable for the next year.
 
