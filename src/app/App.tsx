@@ -109,6 +109,9 @@ const getContactPolicy = (
 
 export default function App() {
   const [listings, setListings] = useState<Listing[]>([]);
+  const [listingsPage, setListingsPage] = useState(0);
+  const [hasMoreListings, setHasMoreListings] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [currentView, setCurrentView] =
     useState<View>("explorar");
@@ -623,6 +626,43 @@ export default function App() {
     }
   };
 
+  const STORAGE_BASE = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
+  const PAGE_SIZE = 50;
+
+  const fetchListingsPage = async (page: number): Promise<Listing[]> => {
+    let loaded = await api.listings.getAll({ page, pageSize: PAGE_SIZE });
+    try {
+      if (loaded.length > 0) {
+        const { data: photosData } = await api.supabase
+          .from("listing_photos")
+          .select("listing_id, storage_path, sort_order")
+          .in("listing_id", loaded.map((l) => l.id))
+          .order("sort_order", { ascending: true });
+        if (photosData && photosData.length > 0) {
+          const byListing: Record<string, string[]> = {};
+          photosData.forEach(({ listing_id, storage_path }: { listing_id: string; storage_path: string }) => {
+            if (!byListing[listing_id]) byListing[listing_id] = [];
+            byListing[listing_id].push(STORAGE_BASE + storage_path);
+          });
+          loaded = loaded.map((l) => ({
+            ...l,
+            photos: byListing[l.id]?.length > 0 ? byListing[l.id] : l.photos,
+          }));
+        }
+      }
+    } catch (e) {
+      console.log("Non-critical: failed to fetch listing photos", e);
+    }
+    const uniqueSellerIds = [...new Set(loaded.map((l) => l.sellerId).filter(Boolean))];
+    uniqueSellerIds.forEach((sellerId) => {
+      api.profile
+        .getSellerVisibility(sellerId)
+        .then((vis) => setSellerContactCache((prev) => ({ ...prev, [sellerId]: vis })))
+        .catch(() => {});
+    });
+    return loaded;
+  };
+
   // ── App initialization: restore session + fetch listings from backend ──
   useEffect(() => {
     const init = async () => {
@@ -692,51 +732,12 @@ export default function App() {
           }
         }
 
-        // 2. Fetch listings from backend
-        let serverListings = await api.listings.getAll();
-
-        // 3. Merge photos from listing_photos table (photos column doesn't exist on listings table)
-        const STORAGE_BASE = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
-        try {
-          const { data: photosData } = await api.supabase
-            .from("listing_photos")
-            .select("listing_id, storage_path, sort_order")
-            .order("sort_order", { ascending: true });
-          if (photosData && photosData.length > 0) {
-            const photosByListing: Record<string, string[]> = {};
-            photosData.forEach(({ listing_id, storage_path }: { listing_id: string; storage_path: string }) => {
-              if (!photosByListing[listing_id]) photosByListing[listing_id] = [];
-              photosByListing[listing_id].push(STORAGE_BASE + storage_path);
-            });
-            serverListings = serverListings.map((l) => ({
-              ...l,
-              photos: photosByListing[l.id]?.length > 0 ? photosByListing[l.id] : l.photos,
-            }));
-          }
-        } catch (e) {
-          console.log("Non-critical: failed to fetch listing photos", e);
-        }
-
+        // 2. Fetch listings page 0, merge photos, seed seller contact cache
+        const serverListings = await fetchListingsPage(0);
         setListings(serverListings);
+        setHasMoreListings(serverListings.length === PAGE_SIZE);
 
-        // Batch-fetch contact visibility for every unique seller so the
-        // explore/sidebar listing cards reflect the seller's real settings
-        // without requiring the user to open each listing detail page.
-        // Fired in parallel — each resolves independently and triggers a
-        // targeted cache update; Da() has safe defaults so missing entries are fine.
-        const uniqueSellerIds = [
-          ...new Set(serverListings.map((l) => l.sellerId).filter(Boolean)),
-        ];
-        uniqueSellerIds.forEach((sellerId) => {
-          api.profile
-            .getSellerVisibility(sellerId)
-            .then((vis) =>
-              setSellerContactCache((prev) => ({ ...prev, [sellerId]: vis }))
-            )
-            .catch(() => {});
-        });
-
-        // 4. Enrich chats with listing photo URLs (now that serverListings has photos merged in)
+        // 3. Enrich chats with listing photo URLs (now that serverListings has photos merged in)
         const FALLBACK_PHOTO = 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&q=80&w=800';
         setChats(pendingChats.map((chat) => {
           const listing = serverListings.find((l) => l.id === chat.listingId);
@@ -757,6 +758,20 @@ export default function App() {
 
     init();
   }, []);
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMoreListings) return;
+    setIsLoadingMore(true);
+    try {
+      const nextPage = listingsPage + 1;
+      const newListings = await fetchListingsPage(nextPage);
+      setListings((prev) => [...prev, ...newListings]);
+      setListingsPage(nextPage);
+      setHasMoreListings(newListings.length === PAGE_SIZE);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Listen for auth events:
   // - PASSWORD_RECOVERY: user clicked reset-password link
@@ -1072,7 +1087,7 @@ export default function App() {
                 )}
               >
                 <div className="@container h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 no-scrollbar flex flex-col gap-6">
-                  <ExploreSidebar 
+                  <ExploreSidebar
                     filters={filters}
                     setFilters={setFilters}
                     setShowFilters={setShowFilters}
@@ -1101,6 +1116,9 @@ export default function App() {
                     onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
                     allListingsCount={listings.length}
                     onPublish={() => { requireAuth(() => setCurrentView("publicar")); }}
+                    hasMoreListings={hasMoreListings}
+                    isLoadingMore={isLoadingMore}
+                    onLoadMore={handleLoadMore}
                   />
                 </div>
               </Resizable>
@@ -1111,7 +1129,7 @@ export default function App() {
                   mobileViewMode === "map" ? "hidden" : "flex"
                 )}
               >
-                <ExploreSidebar 
+                <ExploreSidebar
                   filters={filters}
                   setFilters={setFilters}
                   setShowFilters={setShowFilters}
@@ -1138,6 +1156,11 @@ export default function App() {
                   isLoggedIn={!!currentUser}
                   getContactPolicy={(l) => getContactPolicy(l, currentUser, sellerContactCache)}
                   onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
+                  allListingsCount={listings.length}
+                  onPublish={() => { requireAuth(() => setCurrentView("publicar")); }}
+                  hasMoreListings={hasMoreListings}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={handleLoadMore}
                 />
               </div>
             )}
