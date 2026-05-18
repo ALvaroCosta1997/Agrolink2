@@ -425,10 +425,10 @@ Paste in a new branch (Claude Code creates branches automatically when you ask):
 >
 > **Show me your plan first.**
 
-- [ ] Approve the plan.
-- [ ] When done: review the diff. Make sure it doesn't break the empty state ("no listings yet").
-- [ ] Test on the preview URL — scroll past 50 listings (you don't have 50 yet, but the button shouldn't appear at all when there are <50).
-- [ ] **"Commit and push. Open a PR."**
+- [x] Approve the plan.
+- [x] When done: review the diff. Make sure it doesn't break the empty state ("no listings yet").
+- [x] Test on the preview URL — scroll past 50 listings (you don't have 50 yet, but the button shouldn't appear at all when there are <50).
+- [x] **"Commit and push. Open a PR."**
 
 ## P2.2 — RLS performance fix (Anthropic Claude, 10 minutes)
 
