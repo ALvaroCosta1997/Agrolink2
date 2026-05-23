@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X, Plus, Trash2, Camera, MapPin, CheckCircle2, Info, Eye, EyeOff, Minus, Crosshair, Globe, Loader2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Species, Listing, LifeStage, User } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -411,13 +412,26 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
     setIsCompressing(true);
     const uploadedUrls: string[] = [];
     for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        toast.error("Apenas imagens são permitidas.");
+        continue;
+      }
+      if (formData.photos.length + uploadedUrls.length >= 5) {
+        toast.error("Máximo 5 fotos por anúncio.");
+        break;
+      }
       let uploadBlob: Blob = file;
       let baseName = file.name.replace(/\.[^.]+$/, "");
       try {
         uploadBlob = await compressImage(file);
       } catch (err) {
         console.warn("Compression failed, using original:", err);
-        baseName = file.name.replace(/\.[^.]+$/, "");
+      }
+      // Size check runs on the compressed blob, not the original file, so photos that
+      // compress under 5 MB are accepted even if the raw file was larger.
+      if (uploadBlob.size > 5 * 1024 * 1024) {
+        toast.error("Foto demasiado grande. Máximo 5 MB.");
+        continue;
       }
       setIsCompressing(false);
       setIsUploading(true);
@@ -430,9 +444,11 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
         uploadedUrls.push(data.publicUrl);
       } else {
         console.error('Erro ao carregar foto:', uploadError.message);
+        toast.error("Erro ao carregar a foto. Tenta novamente.");
       }
     }
     setFormData(prev => ({ ...prev, photos: [...prev.photos, ...uploadedUrls] }));
+    setIsCompressing(false);
     setIsUploading(false);
     e.target.value = '';
   };
