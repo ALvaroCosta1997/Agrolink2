@@ -407,6 +407,7 @@ export default function App() {
       });
     } catch (err) {
       console.error("Error saving profile after onboarding:", err);
+      toast.error("Perfil guardado localmente, mas não foi possível sincronizar com o servidor.");
     }
 
     if (pendingAction) {
@@ -606,6 +607,7 @@ export default function App() {
   const handleSendMessage = async (chatId: string, text: string) => {
     if (!currentUser) return;
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const previousChat = chats.find((c) => c.id === chatId);
     // Update local chats state for list preview only
     setChats((prev) =>
       prev.map((c) => {
@@ -623,6 +625,10 @@ export default function App() {
       await api.chats.sendMessage(chatId, text);
     } catch (e) {
       console.error("Failed to send message to backend:", e);
+      if (previousChat) {
+        setChats((prev) => prev.map((c) => (c.id === chatId ? previousChat : c)));
+      }
+      toast.error("Não foi possível enviar a mensagem. Tenta novamente.");
     }
   };
 
@@ -768,6 +774,9 @@ export default function App() {
       setListings((prev) => [...prev, ...newListings]);
       setListingsPage(nextPage);
       setHasMoreListings(newListings.length === PAGE_SIZE);
+    } catch (e) {
+      console.error("Failed to load more listings:", e);
+      toast.error("Não foi possível carregar mais anúncios. Tenta novamente.");
     } finally {
       setIsLoadingMore(false);
     }
@@ -906,25 +915,29 @@ export default function App() {
   }, [listings, filters, currentBounds, activePolygon, sortBy]);
 
   const toggleFavorite = (id: string) => {
-    requireAuth(() => {
-      setFavorites((prev) => {
-        const isRemoving = prev.includes(id);
-        const next = isRemoving
-          ? prev.filter((fid) => fid !== id)
-          : [...prev, id];
+    requireAuth(async () => {
+      const isRemoving = favorites.includes(id);
+      setFavorites((prev) =>
+        isRemoving ? prev.filter((fid) => fid !== id) : [...prev, id]
+      );
+      if (isRemoving) {
+        toast.info("Removido dos favoritos");
+      } else {
+        toast.success("Guardado nos favoritos");
+      }
+      try {
         if (isRemoving) {
-          api.favorites.remove(id).catch((e) =>
-            console.error("Failed to remove favorite:", e)
-          );
-          toast.info("Removido dos favoritos");
+          await api.favorites.remove(id);
         } else {
-          api.favorites.add(id).catch((e) =>
-            console.error("Failed to add favorite:", e)
-          );
-          toast.success("Guardado nos favoritos");
+          await api.favorites.add(id);
         }
-        return next;
-      });
+      } catch (e) {
+        console.error("Failed to toggle favorite:", e);
+        setFavorites((prev) =>
+          isRemoving ? [...prev, id] : prev.filter((fid) => fid !== id)
+        );
+        toast.error("Algo correu mal. Por favor tenta novamente.");
+      }
     });
   };
 
@@ -936,22 +949,10 @@ export default function App() {
         sellerId: user?.id || newListing.sellerId
       };
       
-      // Optimistic update
-      setListings((prev) => [finalListing, ...prev]);
-      setCurrentView("meus-anuncios");
-      toast.success("Anúncio publicado com sucesso!");
-
-      // Persist to backend
+      // No optimistic navigation: the wizard stays mounted during the API call so the
+      // user's form data is preserved if the request fails and they need to retry.
       try {
         const savedListing = await api.listings.create(finalListing);
-        // Replace the optimistic (local-id) listing with the DB version
-        setListings((prev) =>
-          prev.map((l) =>
-            l.id === finalListing.id
-              ? { ...savedListing, photos: finalListing.photos }
-              : l
-          )
-        );
         // Persist photos into listing_photos table using storage_path
         if (finalListing.photos.length > 0) {
           const STORAGE_BASE_PUBLISH = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
@@ -964,9 +965,12 @@ export default function App() {
             })
           );
         }
+        setListings((prev) => [{ ...savedListing, photos: finalListing.photos }, ...prev]);
+        setCurrentView("meus-anuncios");
+        toast.success("Anúncio publicado com sucesso!");
       } catch (e) {
         console.error("Failed to persist listing:", e);
-        toast.error("Erro ao guardar anúncio no servidor. O anúncio está visível localmente.");
+        toast.error("Não foi possível publicar o anúncio. Por favor tenta novamente.");
       }
     });
   };
@@ -975,12 +979,9 @@ export default function App() {
     requireAuth(async () => {
       const originalId = editingListing!.id;
       const merged = { ...updatedListing, id: originalId };
-      // Optimistic update
-      setListings((prev) => prev.map((l) => (l.id === originalId ? merged : l)));
-      setEditingListing(null);
-      setCurrentView("meus-anuncios");
-      toast.success("Anúncio atualizado com sucesso!");
 
+      // No optimistic navigation: the wizard stays mounted during the API call so the
+      // user's edits are preserved in the form if the request fails and they need to retry.
       try {
         const savedListing = await api.listings.update(originalId, merged);
         // Replace photos: delete old rows, insert new ones
@@ -999,9 +1000,12 @@ export default function App() {
         setListings((prev) =>
           prev.map((l) => (l.id === originalId ? { ...savedListing, photos: merged.photos } : l))
         );
+        setEditingListing(null);
+        setCurrentView("meus-anuncios");
+        toast.success("Anúncio atualizado com sucesso!");
       } catch (e) {
         console.error("Failed to update listing:", e);
-        toast.error("Erro ao atualizar anúncio no servidor.");
+        toast.error("Não foi possível atualizar o anúncio. Por favor tenta novamente.");
       }
     });
   };
@@ -1638,6 +1642,7 @@ export default function App() {
                     listing={l}
                     onEdit={() => { setEditingListing(l); setCurrentView("publicar"); }}
                     onMarkAsSold={async () => {
+                      const previousStatus = l.status;
                       setListings((prev) =>
                         prev.map((li) =>
                           li.id === l.id ? { ...li, status: "Vendido" } : li
@@ -1648,6 +1653,12 @@ export default function App() {
                         await api.listings.update(l.id, { status: "Vendido" });
                       } catch (e) {
                         console.error("Failed to update listing status:", e);
+                        setListings((prev) =>
+                          prev.map((li) =>
+                            li.id === l.id ? { ...li, status: previousStatus } : li
+                          )
+                        );
+                        toast.error("Não foi possível marcar como vendido. Tenta novamente.");
                       }
                     }}
                     policy={getContactPolicy(l, currentUser, sellerContactCache)}
