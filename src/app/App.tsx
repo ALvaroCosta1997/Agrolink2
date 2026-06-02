@@ -112,6 +112,9 @@ export default function App() {
   const [listingsPage, setListingsPage] = useState(0);
   const [hasMoreListings, setHasMoreListings] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [currentView, setCurrentView] =
     useState<View>("explorar");
@@ -533,6 +536,7 @@ export default function App() {
         setSelectedChatId(newChat.id);
 
         // Persist chat to backend and replace temporary local id with DB id
+        setIsCreatingChat(true);
         try {
           const savedChat = await api.chats.create(newChat);
           setChats((prev) =>
@@ -550,6 +554,8 @@ export default function App() {
         } catch (e) {
           console.error("Failed to persist chat:", e);
           toast.error("Não foi possível iniciar a conversa.");
+        } finally {
+          setIsCreatingChat(false);
         }
       }
       setCurrentView("mensagens");
@@ -916,6 +922,8 @@ export default function App() {
 
   const toggleFavorite = (id: string) => {
     requireAuth(async () => {
+      if (isTogglingFavorite) return;
+      setIsTogglingFavorite(true);
       const isRemoving = favorites.includes(id);
       setFavorites((prev) =>
         isRemoving ? prev.filter((fid) => fid !== id) : [...prev, id]
@@ -937,6 +945,8 @@ export default function App() {
           isRemoving ? [...prev, id] : prev.filter((fid) => fid !== id)
         );
         toast.error("Algo correu mal. Por favor tenta novamente.");
+      } finally {
+        setIsTogglingFavorite(false);
       }
     });
   };
@@ -948,9 +958,10 @@ export default function App() {
         ...newListing,
         sellerId: user?.id || newListing.sellerId
       };
-      
+
       // No optimistic navigation: the wizard stays mounted during the API call so the
       // user's form data is preserved if the request fails and they need to retry.
+      setIsPublishing(true);
       try {
         const savedListing = await api.listings.create(finalListing);
         // Persist photos into listing_photos table using storage_path
@@ -971,6 +982,8 @@ export default function App() {
       } catch (e) {
         console.error("Failed to persist listing:", e);
         toast.error("Não foi possível publicar o anúncio. Por favor tenta novamente.");
+      } finally {
+        setIsPublishing(false);
       }
     });
   };
@@ -1718,6 +1731,7 @@ export default function App() {
             onCancel={() => setCurrentView("explorar")}
             onPublish={handlePublish}
             currentUser={currentUser}
+            isPublishing={isPublishing}
           />
         );
       case "detalhes":
@@ -1729,7 +1743,9 @@ export default function App() {
               toggleFavorite(selectedListing.id)
             }
             isFavorite={favorites.includes(selectedListing.id)}
+            isTogglingFavorite={isTogglingFavorite}
             onStartChat={() => handleStartChat(selectedListing)}
+            isCreatingChat={isCreatingChat}
             onCall={() => handleCall(selectedListing)}
             isLoggedIn={!!currentUser}
             onRequireAuth={requireAuth}

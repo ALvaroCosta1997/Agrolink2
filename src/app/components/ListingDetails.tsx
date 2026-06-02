@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, MapPin, Phone, MessageCircle, Share2, Heart, Calendar, Info, CheckCircle2, Flag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MapPin, Phone, MessageCircle, Share2, Heart, Calendar, Info, CheckCircle2, Flag, Loader2 } from 'lucide-react';
 import { Listing } from '../types';
 import { ContactPolicy } from '../App';
 import { motion } from 'motion/react';
@@ -12,7 +12,9 @@ interface ListingDetailsProps {
   onBack: () => void;
   onToggleFavorite: () => void;
   isFavorite: boolean;
+  isTogglingFavorite?: boolean;
   onStartChat?: () => void;
+  isCreatingChat?: boolean;
   onCall?: () => void;
   isLoggedIn: boolean;
   onRequireAuth: (action: () => void) => void;
@@ -20,12 +22,14 @@ interface ListingDetailsProps {
   onReport?: () => void;
 }
 
-export function ListingDetails({ 
-  listing, 
-  onBack, 
-  onToggleFavorite, 
-  isFavorite, 
-  onStartChat, 
+export function ListingDetails({
+  listing,
+  onBack,
+  onToggleFavorite,
+  isFavorite,
+  isTogglingFavorite,
+  onStartChat,
+  isCreatingChat,
   onCall,
   isLoggedIn,
   onRequireAuth,
@@ -164,12 +168,13 @@ export function ListingDetails({
             </div>
 
             {/* Favorito Destaque */}
-            <button 
+            <button
               onClick={onToggleFavorite}
+              disabled={isTogglingFavorite}
               className={cn(
-                "w-full h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg",
-                isFavorite 
-                  ? "bg-red-50 text-red-500 border-2 border-red-200" 
+                "w-full h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg disabled:opacity-60 disabled:cursor-not-allowed",
+                isFavorite
+                  ? "bg-red-50 text-red-500 border-2 border-red-200"
                   : "bg-white border-2 border-slate-200 text-slate-500"
               )}
             >
@@ -287,14 +292,24 @@ export function ListingDetails({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button 
+              <button
                 onClick={() => onRequireAuth(() => onStartChat?.())}
+                disabled={isCreatingChat}
                 className={cn(
-                  "h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform shadow-lg shadow-primary/20",
+                  "h-16 rounded-2xl font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-transform shadow-lg shadow-primary/20 disabled:opacity-60 disabled:cursor-not-allowed",
                   !policy.showDirectContact ? "bg-primary text-white col-span-2" : "bg-primary text-white col-span-1 sm:col-span-2"
                 )}
               >
-                <MessageCircle className="w-6 h-6" /> Enviar Mensagem
+                {isCreatingChat ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    A enviar...
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle className="w-6 h-6" /> Enviar Mensagem
+                  </>
+                )}
               </button>
 
               {policy.showDirectContact ? (

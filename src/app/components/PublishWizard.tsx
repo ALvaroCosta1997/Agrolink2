@@ -125,6 +125,7 @@ interface PublishWizardProps {
   currentUser: User | null;
   initialData?: Listing;
   isEditMode?: boolean;
+  isPublishing?: boolean;
 }
 
 const parsePhone = (phone: string): { country: string; number: string } => {
@@ -141,7 +142,7 @@ const LIFE_STAGE_OPTIONS = [
   { id: 'SLAUGHTER', label: 'Pronto para abate' }
 ] as const;
 
-export function PublishWizard({ onCancel, onPublish, currentUser, initialData, isEditMode }: PublishWizardProps) {
+export function PublishWizard({ onCancel, onPublish, currentUser, initialData, isEditMode, isPublishing }: PublishWizardProps) {
   const [step, setStep] = useState(1);
   const totalSteps = 7;
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -917,14 +918,22 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
             Voltar
           </button>
         )}
-        <button 
+        <button
           onClick={step === totalSteps ? handleFinish : nextStep}
+          disabled={step === totalSteps && !!isPublishing}
           className={cn(
-            "h-16 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-95",
+            "h-16 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2",
             step === 1 ? "w-full bg-primary text-white shadow-primary/30" : "flex-[2] bg-primary text-white shadow-primary/30"
           )}
         >
-          {step === totalSteps ? (isEditMode ? 'Guardar Alterações' : 'Publicar Agora') : 'Continuar'}
+          {step === totalSteps && isPublishing ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              A publicar...
+            </>
+          ) : (
+            step === totalSteps ? (isEditMode ? 'Guardar Alterações' : 'Publicar Agora') : 'Continuar'
+          )}
         </button>
       </div>
 
