@@ -461,8 +461,8 @@ In a new branch:
 >
 > **Show me the list of catches you found first before changing.**
 
-- [ ] Read the list. Should be ~10–15 catches.
-- [ ] Approve, review the diff, commit, push, PR, merge.
+- [x] Read the list. Should be ~10–15 catches.
+- [x] Approve, review the diff, commit, push, PR, merge.
 
 ## P2.5 — Image upload validation (Claude Code, 30 min)
 
@@ -489,7 +489,7 @@ In a new branch:
 
 > **On a new branch `cleanup/v2-race-guards`, find the three write paths most prone to double-click: chat creation, favourite toggle, publish. For each, add a `useState` `isSubmitting` boolean and a `disabled={isSubmitting}` on the button. Also add a unique constraint migration on `chats(listing_id, buyer_id, seller_id)` if not already present (I think it is — verify with the schema).**
 
-- [ ] When done, message me to verify the unique constraint situation: "Please check whether `chats_unique_thread` is the unique index on (listing_id, buyer_id, seller_id)."
+- [x] When done, message me to verify the unique constraint situation: "Please check whether `chats_unique_thread` is the unique index on (listing_id, buyer_id, seller_id)."
 
 ## P2.7 — Trigger-based chat preview (Anthropic Claude, 10 minutes)
 
@@ -503,7 +503,7 @@ Message me:
 
 Once I confirm the trigger is live, **do NOT remove the client-side `chats.update(...)` call**. Keep it for UX speed. The trigger is the durable fallback. The redundancy is intentional.
 
-- [ ] When I confirm the trigger is deployed, you're done with P2.7 — no Claude Code step needed.
+- [x] When I confirm the trigger is deployed, you're done with P2.7 — no Claude Code step needed.
 
 ## P2.8 — Email throttling (Claude Code, 30 min)
 
@@ -518,8 +518,8 @@ In a new branch:
 > **3. Otherwise, send the email AND record the timestamp.**
 > **4. The `email_sends` table: `id uuid pk, user_id uuid fk profiles, sent_at timestamptz default now()`. Index on `(user_id, sent_at DESC)`.**
 
-- [ ] Review the migration AND the function change.
-- [ ] Test by sending two chat messages in a row to a different account. The second should not generate an email.
+- [x] Review the migration AND the function change.
+- [x] Test by sending two chat messages in a row to a different account. The second should not generate an email.
 
 ## P2.9 — Test data cleanup (Anthropic Claude, 5 min)
 
