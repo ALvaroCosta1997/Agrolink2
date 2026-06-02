@@ -1,6 +1,17 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')!;
 // No fallback: if this env var is missing the function must fail loudly, not silently accept a public string.
 const INTERNAL_SECRET = Deno.env.get('INTERNAL_SECRET')!;
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+// Throttle: at most one notification email per receiver per THROTTLE_MINUTES.
+const THROTTLE_MINUTES = 30;
+
+const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+});
 
 Deno.serve(async (req) => {
   // Verify the request comes from our own database trigger
@@ -11,6 +22,7 @@ Deno.serve(async (req) => {
 
   try {
     const {
+      receiver_id,
       receiver_email,
       receiver_name,
       sender_name,
@@ -20,6 +32,28 @@ Deno.serve(async (req) => {
 
     if (!receiver_email) {
       return new Response('Missing receiver_email', { status: 400 });
+    }
+
+    // P2.8 throttle: if we have a receiver_id, check whether we've emailed them recently.
+    // (receiver_id is optional for backward compatibility with any pending payloads from the
+    // old trigger version; once the trigger is updated, it will always be present.)
+    if (receiver_id) {
+      const since = new Date(Date.now() - THROTTLE_MINUTES * 60 * 1000).toISOString();
+      const { data: recent, error: lookupError } = await adminClient
+        .from('email_sends')
+        .select('id')
+        .eq('user_id', receiver_id)
+        .gte('sent_at', since)
+        .limit(1);
+
+      if (lookupError) {
+        console.error('Throttle lookup failed (sending anyway):', lookupError);
+      } else if (recent && recent.length > 0) {
+        console.log(`Throttled: user ${receiver_id} received an email within last ${THROTTLE_MINUTES}min`);
+        return new Response(JSON.stringify({ throttled: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     const firstName = receiver_name?.split(' ')[0] || 'Agricultor';
@@ -79,6 +113,18 @@ Deno.serve(async (req) => {
       const error = await res.text();
       console.error('Resend error:', error);
       return new Response(JSON.stringify({ error }), { status: 500 });
+    }
+
+    // P2.8: record successful send so we can throttle subsequent ones.
+    // Only record if we have a receiver_id (otherwise throttling can't apply anyway).
+    if (receiver_id) {
+      const { error: insertError } = await adminClient
+        .from('email_sends')
+        .insert({ user_id: receiver_id });
+      if (insertError) {
+        // Don't fail the whole request — the email already sent. Just log.
+        console.error('Failed to record email_sends row:', insertError);
+      }
     }
 
     return new Response(JSON.stringify({ ok: true }), {
