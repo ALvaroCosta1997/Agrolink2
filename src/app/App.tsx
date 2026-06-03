@@ -314,7 +314,6 @@ export default function App() {
         mode: profileData?.mode || 'AMBOS',
         region: profileData?.region || '',
         isFirstLogin: profileData?.isFirstLogin ?? true,
-        hasSeenSurvey: profileData?.hasSeenSurvey ?? false,
         phoneNumber: profileData?.phoneNumber || '',
         phoneCountry: profileData?.phoneCountry || '+351',
         contactVisibility: profileData?.contactVisibility || {
@@ -354,20 +353,11 @@ export default function App() {
         console.log("Non-critical: failed to load user data", e);
       }
 
-      // Show survey only on the very first login ever.
-      // Guard with both localStorage (instant) and server flag (cross-device)
-      // so that a failed profile update cannot cause the survey to re-appear.
-      const localSurveySeen = localStorage.getItem("agrowlink_survey_seen") === "true";
-      const serverSurveySeen = userProfile.hasSeenSurvey === true;
-      const surveySeen = localSurveySeen || serverSurveySeen;
-
-      if (userProfile.isFirstLogin && !surveySeen) {
+      // Single source of truth: profiles.is_first_login flips to false when
+      // handleOnboardingComplete succeeds. Cross-device safe.
+      if (userProfile.isFirstLogin) {
         setIsOnboardingVisible(true);
       } else {
-        // If the server flag was missing but localStorage has it, backfill silently
-        if (localSurveySeen && !serverSurveySeen) {
-          api.profile.update({ hasSeenSurvey: true, isFirstLogin: false }).catch(() => {});
-        }
         if (pendingAction) {
           setTimeout(() => {
             pendingAction();
@@ -393,20 +383,15 @@ export default function App() {
   };
 
   const handleOnboardingComplete = async (updatedUser: UserType) => {
-    // Write the "survey seen" flag immediately to localStorage so it persists
-    // even if the subsequent API call fails.
-    localStorage.setItem("agrowlink_survey_seen", "true");
-
-    setCurrentUser({ ...updatedUser, isFirstLogin: false, hasSeenSurvey: true });
+    setCurrentUser({ ...updatedUser, isFirstLogin: false });
     setIsOnboardingVisible(false);
     toast.success("Perfil configurado com sucesso!");
 
-    // Persist profile to backend (both flags together)
+    // Flip is_first_login in the DB — this is the sole gate for the popup.
     try {
       await api.profile.update({
         ...updatedUser,
         isFirstLogin: false,
-        hasSeenSurvey: true,
       });
     } catch (err) {
       console.error("Error saving profile after onboarding:", err);
