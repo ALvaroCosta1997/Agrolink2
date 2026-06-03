@@ -109,6 +109,12 @@ const getContactPolicy = (
 
 export default function App() {
   const [listings, setListings] = useState<Listing[]>([]);
+  const [listingsPage, setListingsPage] = useState(0);
+  const [hasMoreListings, setHasMoreListings] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [currentView, setCurrentView] =
     useState<View>("explorar");
@@ -308,7 +314,6 @@ export default function App() {
         mode: profileData?.mode || 'AMBOS',
         region: profileData?.region || '',
         isFirstLogin: profileData?.isFirstLogin ?? true,
-        hasSeenSurvey: profileData?.hasSeenSurvey ?? false,
         phoneNumber: profileData?.phoneNumber || '',
         phoneCountry: profileData?.phoneCountry || '+351',
         contactVisibility: profileData?.contactVisibility || {
@@ -348,20 +353,11 @@ export default function App() {
         console.log("Non-critical: failed to load user data", e);
       }
 
-      // Show survey only on the very first login ever.
-      // Guard with both localStorage (instant) and server flag (cross-device)
-      // so that a failed profile update cannot cause the survey to re-appear.
-      const localSurveySeen = localStorage.getItem("agrowlink_survey_seen") === "true";
-      const serverSurveySeen = userProfile.hasSeenSurvey === true;
-      const surveySeen = localSurveySeen || serverSurveySeen;
-
-      if (userProfile.isFirstLogin && !surveySeen) {
+      // Single source of truth: profiles.is_first_login flips to false when
+      // handleOnboardingComplete succeeds. Cross-device safe.
+      if (userProfile.isFirstLogin) {
         setIsOnboardingVisible(true);
       } else {
-        // If the server flag was missing but localStorage has it, backfill silently
-        if (localSurveySeen && !serverSurveySeen) {
-          api.profile.update({ hasSeenSurvey: true, isFirstLogin: false }).catch(() => {});
-        }
         if (pendingAction) {
           setTimeout(() => {
             pendingAction();
@@ -387,23 +383,19 @@ export default function App() {
   };
 
   const handleOnboardingComplete = async (updatedUser: UserType) => {
-    // Write the "survey seen" flag immediately to localStorage so it persists
-    // even if the subsequent API call fails.
-    localStorage.setItem("agrowlink_survey_seen", "true");
-
-    setCurrentUser({ ...updatedUser, isFirstLogin: false, hasSeenSurvey: true });
+    setCurrentUser({ ...updatedUser, isFirstLogin: false });
     setIsOnboardingVisible(false);
     toast.success("Perfil configurado com sucesso!");
 
-    // Persist profile to backend (both flags together)
+    // Flip is_first_login in the DB — this is the sole gate for the popup.
     try {
       await api.profile.update({
         ...updatedUser,
         isFirstLogin: false,
-        hasSeenSurvey: true,
       });
     } catch (err) {
       console.error("Error saving profile after onboarding:", err);
+      toast.error("Perfil guardado localmente, mas não foi possível sincronizar com o servidor.");
     }
 
     if (pendingAction) {
@@ -529,6 +521,7 @@ export default function App() {
         setSelectedChatId(newChat.id);
 
         // Persist chat to backend and replace temporary local id with DB id
+        setIsCreatingChat(true);
         try {
           const savedChat = await api.chats.create(newChat);
           setChats((prev) =>
@@ -546,6 +539,8 @@ export default function App() {
         } catch (e) {
           console.error("Failed to persist chat:", e);
           toast.error("Não foi possível iniciar a conversa.");
+        } finally {
+          setIsCreatingChat(false);
         }
       }
       setCurrentView("mensagens");
@@ -603,6 +598,7 @@ export default function App() {
   const handleSendMessage = async (chatId: string, text: string) => {
     if (!currentUser) return;
     const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const previousChat = chats.find((c) => c.id === chatId);
     // Update local chats state for list preview only
     setChats((prev) =>
       prev.map((c) => {
@@ -620,7 +616,48 @@ export default function App() {
       await api.chats.sendMessage(chatId, text);
     } catch (e) {
       console.error("Failed to send message to backend:", e);
+      if (previousChat) {
+        setChats((prev) => prev.map((c) => (c.id === chatId ? previousChat : c)));
+      }
+      toast.error("Não foi possível enviar a mensagem. Tenta novamente.");
     }
+  };
+
+  const STORAGE_BASE = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
+  const PAGE_SIZE = 50;
+
+  const fetchListingsPage = async (page: number): Promise<Listing[]> => {
+    let loaded = await api.listings.getAll({ page, pageSize: PAGE_SIZE });
+    try {
+      if (loaded.length > 0) {
+        const { data: photosData } = await api.supabase
+          .from("listing_photos")
+          .select("listing_id, storage_path, sort_order")
+          .in("listing_id", loaded.map((l) => l.id))
+          .order("sort_order", { ascending: true });
+        if (photosData && photosData.length > 0) {
+          const byListing: Record<string, string[]> = {};
+          photosData.forEach(({ listing_id, storage_path }: { listing_id: string; storage_path: string }) => {
+            if (!byListing[listing_id]) byListing[listing_id] = [];
+            byListing[listing_id].push(STORAGE_BASE + storage_path);
+          });
+          loaded = loaded.map((l) => ({
+            ...l,
+            photos: byListing[l.id]?.length > 0 ? byListing[l.id] : l.photos,
+          }));
+        }
+      }
+    } catch (e) {
+      console.log("Non-critical: failed to fetch listing photos", e);
+    }
+    const uniqueSellerIds = [...new Set(loaded.map((l) => l.sellerId).filter(Boolean))];
+    uniqueSellerIds.forEach((sellerId) => {
+      api.profile
+        .getSellerVisibility(sellerId)
+        .then((vis) => setSellerContactCache((prev) => ({ ...prev, [sellerId]: vis })))
+        .catch(() => {});
+    });
+    return loaded;
   };
 
   // ── App initialization: restore session + fetch listings from backend ──
@@ -692,51 +729,12 @@ export default function App() {
           }
         }
 
-        // 2. Fetch listings from backend
-        let serverListings = await api.listings.getAll();
-
-        // 3. Merge photos from listing_photos table (photos column doesn't exist on listings table)
-        const STORAGE_BASE = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
-        try {
-          const { data: photosData } = await api.supabase
-            .from("listing_photos")
-            .select("listing_id, storage_path, sort_order")
-            .order("sort_order", { ascending: true });
-          if (photosData && photosData.length > 0) {
-            const photosByListing: Record<string, string[]> = {};
-            photosData.forEach(({ listing_id, storage_path }: { listing_id: string; storage_path: string }) => {
-              if (!photosByListing[listing_id]) photosByListing[listing_id] = [];
-              photosByListing[listing_id].push(STORAGE_BASE + storage_path);
-            });
-            serverListings = serverListings.map((l) => ({
-              ...l,
-              photos: photosByListing[l.id]?.length > 0 ? photosByListing[l.id] : l.photos,
-            }));
-          }
-        } catch (e) {
-          console.log("Non-critical: failed to fetch listing photos", e);
-        }
-
+        // 2. Fetch listings page 0, merge photos, seed seller contact cache
+        const serverListings = await fetchListingsPage(0);
         setListings(serverListings);
+        setHasMoreListings(serverListings.length === PAGE_SIZE);
 
-        // Batch-fetch contact visibility for every unique seller so the
-        // explore/sidebar listing cards reflect the seller's real settings
-        // without requiring the user to open each listing detail page.
-        // Fired in parallel — each resolves independently and triggers a
-        // targeted cache update; Da() has safe defaults so missing entries are fine.
-        const uniqueSellerIds = [
-          ...new Set(serverListings.map((l) => l.sellerId).filter(Boolean)),
-        ];
-        uniqueSellerIds.forEach((sellerId) => {
-          api.profile
-            .getSellerVisibility(sellerId)
-            .then((vis) =>
-              setSellerContactCache((prev) => ({ ...prev, [sellerId]: vis }))
-            )
-            .catch(() => {});
-        });
-
-        // 4. Enrich chats with listing photo URLs (now that serverListings has photos merged in)
+        // 3. Enrich chats with listing photo URLs (now that serverListings has photos merged in)
         const FALLBACK_PHOTO = 'https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&q=80&w=800';
         setChats(pendingChats.map((chat) => {
           const listing = serverListings.find((l) => l.id === chat.listingId);
@@ -757,6 +755,23 @@ export default function App() {
 
     init();
   }, []);
+
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMoreListings) return;
+    setIsLoadingMore(true);
+    try {
+      const nextPage = listingsPage + 1;
+      const newListings = await fetchListingsPage(nextPage);
+      setListings((prev) => [...prev, ...newListings]);
+      setListingsPage(nextPage);
+      setHasMoreListings(newListings.length === PAGE_SIZE);
+    } catch (e) {
+      console.error("Failed to load more listings:", e);
+      toast.error("Não foi possível carregar mais anúncios. Tenta novamente.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   // Listen for auth events:
   // - PASSWORD_RECOVERY: user clicked reset-password link
@@ -891,25 +906,33 @@ export default function App() {
   }, [listings, filters, currentBounds, activePolygon, sortBy]);
 
   const toggleFavorite = (id: string) => {
-    requireAuth(() => {
-      setFavorites((prev) => {
-        const isRemoving = prev.includes(id);
-        const next = isRemoving
-          ? prev.filter((fid) => fid !== id)
-          : [...prev, id];
+    requireAuth(async () => {
+      if (isTogglingFavorite) return;
+      setIsTogglingFavorite(true);
+      const isRemoving = favorites.includes(id);
+      setFavorites((prev) =>
+        isRemoving ? prev.filter((fid) => fid !== id) : [...prev, id]
+      );
+      if (isRemoving) {
+        toast.info("Removido dos favoritos");
+      } else {
+        toast.success("Guardado nos favoritos");
+      }
+      try {
         if (isRemoving) {
-          api.favorites.remove(id).catch((e) =>
-            console.error("Failed to remove favorite:", e)
-          );
-          toast.info("Removido dos favoritos");
+          await api.favorites.remove(id);
         } else {
-          api.favorites.add(id).catch((e) =>
-            console.error("Failed to add favorite:", e)
-          );
-          toast.success("Guardado nos favoritos");
+          await api.favorites.add(id);
         }
-        return next;
-      });
+      } catch (e) {
+        console.error("Failed to toggle favorite:", e);
+        setFavorites((prev) =>
+          isRemoving ? [...prev, id] : prev.filter((fid) => fid !== id)
+        );
+        toast.error("Algo correu mal. Por favor tenta novamente.");
+      } finally {
+        setIsTogglingFavorite(false);
+      }
     });
   };
 
@@ -920,23 +943,12 @@ export default function App() {
         ...newListing,
         sellerId: user?.id || newListing.sellerId
       };
-      
-      // Optimistic update
-      setListings((prev) => [finalListing, ...prev]);
-      setCurrentView("meus-anuncios");
-      toast.success("Anúncio publicado com sucesso!");
 
-      // Persist to backend
+      // No optimistic navigation: the wizard stays mounted during the API call so the
+      // user's form data is preserved if the request fails and they need to retry.
+      setIsPublishing(true);
       try {
         const savedListing = await api.listings.create(finalListing);
-        // Replace the optimistic (local-id) listing with the DB version
-        setListings((prev) =>
-          prev.map((l) =>
-            l.id === finalListing.id
-              ? { ...savedListing, photos: finalListing.photos }
-              : l
-          )
-        );
         // Persist photos into listing_photos table using storage_path
         if (finalListing.photos.length > 0) {
           const STORAGE_BASE_PUBLISH = 'https://odznjlpzknczzutgirvk.supabase.co/storage/v1/object/public/listing-photos/';
@@ -949,9 +961,14 @@ export default function App() {
             })
           );
         }
+        setListings((prev) => [{ ...savedListing, photos: finalListing.photos }, ...prev]);
+        setCurrentView("meus-anuncios");
+        toast.success("Anúncio publicado com sucesso!");
       } catch (e) {
         console.error("Failed to persist listing:", e);
-        toast.error("Erro ao guardar anúncio no servidor. O anúncio está visível localmente.");
+        toast.error("Não foi possível publicar o anúncio. Por favor tenta novamente.");
+      } finally {
+        setIsPublishing(false);
       }
     });
   };
@@ -960,12 +977,9 @@ export default function App() {
     requireAuth(async () => {
       const originalId = editingListing!.id;
       const merged = { ...updatedListing, id: originalId };
-      // Optimistic update
-      setListings((prev) => prev.map((l) => (l.id === originalId ? merged : l)));
-      setEditingListing(null);
-      setCurrentView("meus-anuncios");
-      toast.success("Anúncio atualizado com sucesso!");
 
+      // No optimistic navigation: the wizard stays mounted during the API call so the
+      // user's edits are preserved in the form if the request fails and they need to retry.
       try {
         const savedListing = await api.listings.update(originalId, merged);
         // Replace photos: delete old rows, insert new ones
@@ -984,9 +998,12 @@ export default function App() {
         setListings((prev) =>
           prev.map((l) => (l.id === originalId ? { ...savedListing, photos: merged.photos } : l))
         );
+        setEditingListing(null);
+        setCurrentView("meus-anuncios");
+        toast.success("Anúncio atualizado com sucesso!");
       } catch (e) {
         console.error("Failed to update listing:", e);
-        toast.error("Erro ao atualizar anúncio no servidor.");
+        toast.error("Não foi possível atualizar o anúncio. Por favor tenta novamente.");
       }
     });
   };
@@ -1072,7 +1089,7 @@ export default function App() {
                 )}
               >
                 <div className="@container h-full overflow-y-auto overflow-x-hidden p-4 md:p-6 no-scrollbar flex flex-col gap-6">
-                  <ExploreSidebar 
+                  <ExploreSidebar
                     filters={filters}
                     setFilters={setFilters}
                     setShowFilters={setShowFilters}
@@ -1101,6 +1118,9 @@ export default function App() {
                     onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
                     allListingsCount={listings.length}
                     onPublish={() => { requireAuth(() => setCurrentView("publicar")); }}
+                    hasMoreListings={hasMoreListings}
+                    isLoadingMore={isLoadingMore}
+                    onLoadMore={handleLoadMore}
                   />
                 </div>
               </Resizable>
@@ -1111,7 +1131,7 @@ export default function App() {
                   mobileViewMode === "map" ? "hidden" : "flex"
                 )}
               >
-                <ExploreSidebar 
+                <ExploreSidebar
                   filters={filters}
                   setFilters={setFilters}
                   setShowFilters={setShowFilters}
@@ -1138,6 +1158,11 @@ export default function App() {
                   isLoggedIn={!!currentUser}
                   getContactPolicy={(l) => getContactPolicy(l, currentUser, sellerContactCache)}
                   onReport={(l) => handleOpenReport(l.id, l.sellerId, `${l.species} — ${l.breed || 'Lote'}`)}
+                  allListingsCount={listings.length}
+                  onPublish={() => { requireAuth(() => setCurrentView("publicar")); }}
+                  hasMoreListings={hasMoreListings}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={handleLoadMore}
                 />
               </div>
             )}
@@ -1615,6 +1640,7 @@ export default function App() {
                     listing={l}
                     onEdit={() => { setEditingListing(l); setCurrentView("publicar"); }}
                     onMarkAsSold={async () => {
+                      const previousStatus = l.status;
                       setListings((prev) =>
                         prev.map((li) =>
                           li.id === l.id ? { ...li, status: "Vendido" } : li
@@ -1625,6 +1651,12 @@ export default function App() {
                         await api.listings.update(l.id, { status: "Vendido" });
                       } catch (e) {
                         console.error("Failed to update listing status:", e);
+                        setListings((prev) =>
+                          prev.map((li) =>
+                            li.id === l.id ? { ...li, status: previousStatus } : li
+                          )
+                        );
+                        toast.error("Não foi possível marcar como vendido. Tenta novamente.");
                       }
                     }}
                     policy={getContactPolicy(l, currentUser, sellerContactCache)}
@@ -1684,6 +1716,7 @@ export default function App() {
             onCancel={() => setCurrentView("explorar")}
             onPublish={handlePublish}
             currentUser={currentUser}
+            isPublishing={isPublishing}
           />
         );
       case "detalhes":
@@ -1695,7 +1728,9 @@ export default function App() {
               toggleFavorite(selectedListing.id)
             }
             isFavorite={favorites.includes(selectedListing.id)}
+            isTogglingFavorite={isTogglingFavorite}
             onStartChat={() => handleStartChat(selectedListing)}
+            isCreatingChat={isCreatingChat}
             onCall={() => handleCall(selectedListing)}
             isLoggedIn={!!currentUser}
             onRequireAuth={requireAuth}

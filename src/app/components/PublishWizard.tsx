@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X, Plus, Trash2, Camera, MapPin, CheckCircle2, Info, Eye, EyeOff, Minus, Crosshair, Globe, Loader2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Species, Listing, LifeStage, User } from '../types';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -124,6 +125,7 @@ interface PublishWizardProps {
   currentUser: User | null;
   initialData?: Listing;
   isEditMode?: boolean;
+  isPublishing?: boolean;
 }
 
 const parsePhone = (phone: string): { country: string; number: string } => {
@@ -140,7 +142,7 @@ const LIFE_STAGE_OPTIONS = [
   { id: 'SLAUGHTER', label: 'Pronto para abate' }
 ] as const;
 
-export function PublishWizard({ onCancel, onPublish, currentUser, initialData, isEditMode }: PublishWizardProps) {
+export function PublishWizard({ onCancel, onPublish, currentUser, initialData, isEditMode, isPublishing }: PublishWizardProps) {
   const [step, setStep] = useState(1);
   const totalSteps = 7;
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -411,13 +413,26 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
     setIsCompressing(true);
     const uploadedUrls: string[] = [];
     for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        toast.error("Apenas imagens são permitidas.");
+        continue;
+      }
+      if (formData.photos.length + uploadedUrls.length >= 5) {
+        toast.error("Máximo 5 fotos por anúncio.");
+        break;
+      }
       let uploadBlob: Blob = file;
       let baseName = file.name.replace(/\.[^.]+$/, "");
       try {
         uploadBlob = await compressImage(file);
       } catch (err) {
         console.warn("Compression failed, using original:", err);
-        baseName = file.name.replace(/\.[^.]+$/, "");
+      }
+      // Size check runs on the compressed blob, not the original file, so photos that
+      // compress under 5 MB are accepted even if the raw file was larger.
+      if (uploadBlob.size > 5 * 1024 * 1024) {
+        toast.error("Foto demasiado grande. Máximo 5 MB.");
+        continue;
       }
       setIsCompressing(false);
       setIsUploading(true);
@@ -430,9 +445,11 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
         uploadedUrls.push(data.publicUrl);
       } else {
         console.error('Erro ao carregar foto:', uploadError.message);
+        toast.error("Erro ao carregar a foto. Tenta novamente.");
       }
     }
     setFormData(prev => ({ ...prev, photos: [...prev.photos, ...uploadedUrls] }));
+    setIsCompressing(false);
     setIsUploading(false);
     e.target.value = '';
   };
@@ -901,14 +918,22 @@ export function PublishWizard({ onCancel, onPublish, currentUser, initialData, i
             Voltar
           </button>
         )}
-        <button 
+        <button
           onClick={step === totalSteps ? handleFinish : nextStep}
+          disabled={step === totalSteps && !!isPublishing}
           className={cn(
-            "h-16 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-95",
+            "h-16 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2",
             step === 1 ? "w-full bg-primary text-white shadow-primary/30" : "flex-[2] bg-primary text-white shadow-primary/30"
           )}
         >
-          {step === totalSteps ? (isEditMode ? 'Guardar Alterações' : 'Publicar Agora') : 'Continuar'}
+          {step === totalSteps && isPublishing ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              A publicar...
+            </>
+          ) : (
+            step === totalSteps ? (isEditMode ? 'Guardar Alterações' : 'Publicar Agora') : 'Continuar'
+          )}
         </button>
       </div>
 

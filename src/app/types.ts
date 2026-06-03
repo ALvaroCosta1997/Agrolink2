@@ -59,7 +59,6 @@ export interface User {
   email?: string;
   role?: 'user' | 'admin';
   isFirstLogin?: boolean;
-  hasSeenSurvey?: boolean;
   phoneNumber?: string;
   phoneCountry?: string;
   contactVisibility?: {

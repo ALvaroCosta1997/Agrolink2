@@ -269,12 +269,13 @@ export const profile = {
 // LISTINGS
 // ══════════════════════════════════════════════════════════════════
 export const listings = {
-  async getAll(): Promise<Listing[]> {
+  async getAll({ page = 0, pageSize = 50 }: { page?: number; pageSize?: number } = {}): Promise<Listing[]> {
     const { data, error } = await supabase
       .from("listings")
       .select("*")
       .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
     if (error) throw new Error(error.message);
     return (data || []).map(rowToListing);
   },
@@ -364,14 +365,15 @@ export const favorites = {
 // CHATS
 // ══════════════════════════════════════════════════════════════════
 export const chats = {
-  async getAll(): Promise<Chat[]> {
+  async getAll({ page = 0, pageSize = 50 }: { page?: number; pageSize?: number } = {}): Promise<Chat[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
     const { data, error } = await supabase
       .from("chats")
       .select("*")
       .or(`seller_id.eq.${user.id},buyer_id.eq.${user.id}`)
-      .order("last_update", { ascending: false });
+      .order("last_update", { ascending: false })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
     if (error) throw new Error(error.message);
     return (data || []).map(rowToChat);
   },
@@ -396,12 +398,13 @@ export const chats = {
     return rowToChat(data);
   },
 
-  async getMessages(chatId: string): Promise<ChatMessage[]> {
+  async getMessages(chatId: string, { page = 0, pageSize = 50 }: { page?: number; pageSize?: number } = {}): Promise<ChatMessage[]> {
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("chat_id", chatId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
     if (error) throw new Error(error.message);
     return (data || []).map(rowToChatMessage);
   },

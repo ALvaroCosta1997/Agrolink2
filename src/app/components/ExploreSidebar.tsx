@@ -35,6 +35,9 @@ interface ExploreSidebarProps {
   onReport?: (listing: Listing) => void;
   allListingsCount?: number;
   onPublish?: () => void;
+  hasMoreListings?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
 }
 
 export function ExploreSidebar({
@@ -66,6 +69,9 @@ export function ExploreSidebar({
   onReport,
   allListingsCount = 0,
   onPublish,
+  hasMoreListings = false,
+  isLoadingMore = false,
+  onLoadMore,
 }: ExploreSidebarProps) {
   return (
     <>
@@ -301,6 +307,16 @@ export function ExploreSidebar({
             </div>
           ))}
         </div>
+      )}
+      {hasMoreListings && (
+        <button
+          onClick={onLoadMore}
+          disabled={isLoadingMore}
+          className="w-full h-14 bg-white border-2 border-primary/20 rounded-2xl font-black text-sm text-primary uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isLoadingMore && <RefreshCw className="w-4 h-4 animate-spin" />}
+          {isLoadingMore ? "A carregar..." : "Carregar mais anúncios"}
+        </button>
       )}
     </>
   );
